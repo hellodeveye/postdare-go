@@ -1,0 +1,25 @@
+server:
+  port: 8088
+  cors_origins:
+    - http://localhost:5173
+    - http://localhost:5174
+
+database:
+  dsn: "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local"
+
+jwt:
+  secret: "please-change-this-secret"
+  expire_hours: 72
+
+deploy:
+  log_dir: "/data/postdare-go/logs/deploy"
+  command_timeout_minutes: 30
+
+app_log:
+  max_tail_lines: 500
+  max_allowed_lines: 5000
+
+mcp:
+  enabled: true
+  allow_mutation_tools: false
+  api_token: "please-change-this-token"

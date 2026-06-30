@@ -1,0 +1,17 @@
+[Unit]
+Description=Example Java application managed by Postdare Go
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/data/apps/my-app
+ExecStart=/usr/bin/java -jar /data/apps/my-app/my-app.jar
+Restart=always
+RestartSec=5
+User=app
+Group=app
+StandardOutput=append:/data/apps/my-app/logs/app.log
+StandardError=append:/data/apps/my-app/logs/app.log
+
+[Install]
+WantedBy=multi-user.target
