@@ -56,6 +56,7 @@ body {
   letter-spacing: 0;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  overflow-wrap: anywhere;
 }
 
 button,
