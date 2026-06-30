@@ -31,37 +31,53 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle>Recent Deployments</CardTitle>
           </CardHeader>
-          <CardContent className="overflow-x-auto p-0">
-            <Table>
-              <thead>
-                <tr>
-                  <Th>Task</Th>
-                  <Th>Project</Th>
-                  <Th>Trigger</Th>
-                  <Th>Commit</Th>
-                  <Th>Status</Th>
-                  <Th>Created</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {(recent.data?.data ?? []).map((task) => (
-                  <tr key={task.id} className="hover:bg-surface-2/70">
-                    <Td>
-                      <Link className="font-medium text-primary hover:underline" to={`/deploy-tasks/${task.id}`}>
-                        #{task.id}
-                      </Link>
-                    </Td>
-                    <Td>{task.project?.name ?? `Project ${task.project_id}`}</Td>
-                    <Td>{task.trigger_type}</Td>
-                    <Td className="font-mono text-xs">{shortCommit(task.commit_id)}</Td>
-                    <Td>
-                      <Badge tone={statusTone(task.status)}>{task.status}</Badge>
-                    </Td>
-                    <Td>{formatDate(task.created_at)}</Td>
+          <CardContent className="p-0">
+            <div className="hidden overflow-x-auto md:block">
+              <Table>
+                <thead>
+                  <tr>
+                    <Th>Task</Th>
+                    <Th>Project</Th>
+                    <Th>Trigger</Th>
+                    <Th>Commit</Th>
+                    <Th>Status</Th>
+                    <Th>Created</Th>
                   </tr>
-                ))}
-              </tbody>
-            </Table>
+                </thead>
+                <tbody>
+                  {(recent.data?.data ?? []).map((task) => (
+                    <tr key={task.id} className="hover:bg-surface-2/70">
+                      <Td>
+                        <Link className="font-medium text-primary hover:underline" to={`/deploy-tasks/${task.id}`}>
+                          #{task.id}
+                        </Link>
+                      </Td>
+                      <Td>{task.project?.name ?? `Project ${task.project_id}`}</Td>
+                      <Td>{task.trigger_type}</Td>
+                      <Td className="font-mono text-xs">{shortCommit(task.commit_id)}</Td>
+                      <Td>
+                        <Badge tone={statusTone(task.status)}>{task.status}</Badge>
+                      </Td>
+                      <Td>{formatDate(task.created_at)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+            <div className="divide-y divide-border md:hidden">
+              {(recent.data?.data ?? []).map((task) => (
+                <Link key={task.id} to={`/deploy-tasks/${task.id}`} className="block p-4 active:bg-surface-2/70">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-primary">#{task.id}</span>
+                    <Badge tone={statusTone(task.status)}>{task.status}</Badge>
+                  </div>
+                  <div className="mt-1 truncate text-sm text-ink">{task.project?.name ?? `Project ${task.project_id}`}</div>
+                  <div className="mt-1 text-xs text-muted">
+                    {task.trigger_type} · <span className="font-mono">{shortCommit(task.commit_id)}</span> · {formatDate(task.created_at)}
+                  </div>
+                </Link>
+              ))}
+            </div>
           </CardContent>
         </Card>
         <Card>
