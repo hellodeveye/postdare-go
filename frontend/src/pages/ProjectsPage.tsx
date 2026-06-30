@@ -1,4 +1,4 @@
-import { Rocket, Settings } from "lucide-react";
+import { Loader2, Rocket, Settings } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -18,7 +18,11 @@ export function ProjectsPage() {
   const projects = useQuery({ queryKey: ["projects"], queryFn: () => listProjects(token) });
   const deploy = useMutation({
     mutationFn: (id: number) => triggerDeploy(id, token),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["deploy-tasks"] })
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["deploy-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      navigate(`/deploy-tasks/${res.data.id}`);
+    }
   });
 
   return (
@@ -54,13 +58,20 @@ export function ProjectsPage() {
                   <Td>{formatDate(project.updated_at)}</Td>
                   <Td>
                     <div className="flex items-center gap-2">
-                      <Button size="sm" variant="secondary" onClick={() => deploy.mutate(project.id)}>
-                        <Rocket className="h-3.5 w-3.5" />
+                      <Button size="sm" variant="secondary" onClick={() => deploy.mutate(project.id)} disabled={deploy.isPending}>
+                        {deploy.isPending && deploy.variables === project.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Rocket className="h-3.5 w-3.5" />
+                        )}
                         Deploy
                       </Button>
                       <Button size="icon" variant="ghost" aria-label="Project settings" onClick={() => navigate(`/projects/${project.id}/settings`)}>
                         <Settings className="h-4 w-4" />
                       </Button>
+                      {deploy.isError && deploy.variables === project.id && (
+                        <span className="text-xs text-danger">{(deploy.error as Error)?.message ?? "Deploy failed"}</span>
+                      )}
                     </div>
                   </Td>
                 </tr>
