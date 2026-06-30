@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"net/http"
+	"strings"
 )
 
 type GiteeWebhookParser struct{}
@@ -26,7 +27,7 @@ func (GiteeWebhookParser) Parse(headers http.Header, body []byte) (*Event, error
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return nil, err
 	}
-	eventType := firstNonEmpty(headers.Get("X-Gitee-Event"), stringFromMap(payload, "hook_name"), stringFromMap(payload, "event_name"))
+	eventType := normalizeGiteeEventType(firstNonEmpty(headers.Get("X-Gitee-Event"), stringFromMap(payload, "hook_name"), stringFromMap(payload, "event_name")))
 	if eventType == "" {
 		eventType = "push"
 	}
@@ -49,6 +50,16 @@ func (GiteeWebhookParser) Parse(headers http.Header, body []byte) (*Event, error
 		DeliveryID:    firstNonEmpty(headers.Get("X-Gitee-Delivery"), headers.Get("X-Git-Osc-Delivery")),
 		RawPayload:    body,
 	}, nil
+}
+
+func normalizeGiteeEventType(eventType string) string {
+	eventType = strings.TrimSpace(eventType)
+	normalized := strings.ToLower(strings.NewReplacer("_", " ", "-", " ").Replace(eventType))
+	fields := strings.Fields(normalized)
+	if len(fields) > 0 && fields[0] == "push" {
+		return "push"
+	}
+	return eventType
 }
 
 func lastCommit(payload map[string]interface{}) map[string]interface{} {
