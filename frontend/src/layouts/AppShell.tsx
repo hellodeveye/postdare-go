@@ -18,7 +18,7 @@ export function AppShell() {
   const { user, logout, theme, toggleTheme } = useAuthStore();
 
   return (
-    <div className="min-h-screen bg-background text-ink">
+    <div className="min-h-dvh bg-background text-ink">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-border bg-surface md:block">
         <div className="flex h-14 items-center gap-2 border-b border-border px-4">
           <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-ink">
