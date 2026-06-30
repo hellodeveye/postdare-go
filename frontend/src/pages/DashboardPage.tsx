@@ -27,7 +27,7 @@ export function DashboardPage() {
         <MetricCard label="Failed" value={data?.today_failed_total ?? "—"} icon={<XCircle className="h-4 w-4" />} />
       </div>
       <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Recent Deployments</CardTitle>
           </CardHeader>
@@ -80,7 +80,7 @@ export function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>Recent Failures</CardTitle>
           </CardHeader>
