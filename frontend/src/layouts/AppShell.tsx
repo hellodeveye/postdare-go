@@ -71,7 +71,7 @@ export function AppShell() {
             </Button>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-7xl px-4 pt-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:px-6 md:pb-5">
+        <main className="mx-auto w-full max-w-7xl overflow-x-clip px-4 pt-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:px-6 md:pb-5">
           <Outlet />
         </main>
         <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden">
