@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +38,8 @@ type Handler struct {
 	Service *service.Service
 	Hub     *sse.Hub
 }
+
+var ansiEscapePattern = regexp.MustCompile(`\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))`)
 
 func RegisterRoutes(r *gin.Engine, h *Handler) {
 	api := r.Group("/api/v1")
@@ -354,7 +357,7 @@ func (h *Handler) StreamDeployTaskLogs(c *gin.Context) {
 		case <-c.Request.Context().Done():
 			return false
 		case line := <-ch:
-			c.SSEvent("message", strings.TrimSuffix(line, "\n"))
+			c.SSEvent("message", sanitizeLogText(strings.TrimSuffix(line, "\n")))
 			return true
 		}
 	})
@@ -445,7 +448,7 @@ func (h *Handler) StreamProjectAppLogs(c *gin.Context) {
 		if !scanner.Scan() {
 			return false
 		}
-		c.SSEvent("message", scanner.Text())
+		c.SSEvent("message", sanitizeLogText(scanner.Text()))
 		return true
 	})
 	_ = cmd.Process.Kill()
@@ -900,7 +903,11 @@ func tailFile(path string, lines int) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(out), nil
+	return sanitizeLogText(string(out)), nil
+}
+
+func sanitizeLogText(text string) string {
+	return strings.ToValidUTF8(ansiEscapePattern.ReplaceAllString(text, ""), "�")
 }
 
 func safeProjectAppLogPath(project model.Project) (string, error) {
