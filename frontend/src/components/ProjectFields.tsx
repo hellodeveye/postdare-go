@@ -186,21 +186,16 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                         <option value="feishu_text">Feishu text</option>
                         <option value="generic_json">Generic JSON</option>
                       </select>
-                      <Textarea
-                        placeholder="留空则使用系统默认消息模板"
-                        value={stage.config?.message_template ?? ""}
-                        onChange={(e) => updateConfig(index, { message_template: e.target.value })}
-                      />
                       <details className="group">
-                        <summary className="flex cursor-pointer list-none items-start gap-2 outline-none focus-visible:outline-none focus-visible:ring-0">
+                        <summary className="relative cursor-pointer list-none outline-none focus-visible:outline-none focus-visible:ring-0">
                           <Textarea
-                            className="min-h-[80px] flex-1 cursor-text"
+                            className="min-h-[80px] w-full cursor-text pr-9"
                             placeholder="留空则使用系统默认消息模板"
                             value={stage.config?.message_template ?? ""}
                             onChange={(e) => updateConfig(index, { message_template: e.target.value })}
                             onClick={(e) => e.stopPropagation()}
                           />
-                          <HelpCircle className="h-4 w-4 shrink-0 text-muted transition-colors hover:text-ink group-open:text-primary" />
+                          <HelpCircle className="absolute right-3 top-2.5 h-4 w-4 text-muted transition-colors hover:text-ink group-open:text-primary" />
                         </summary>
                         <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface p-3 text-xs leading-relaxed text-muted">
                           {defaultMessageTemplate}
