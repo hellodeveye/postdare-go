@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ArrowDown, ArrowUp, HelpCircle, Plus, Trash2 } from "lucide-react";
 
 import type { OutboundWebhookTemplate, Project, ProjectStage, ProjectStageRunWhen, ProjectStageType } from "../api/types";
@@ -83,6 +84,8 @@ export function ProjectFields({ value, onChange }: Props) {
 }
 
 function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (next: ProjectStage[]) => void }) {
+  const [openHints, setOpenHints] = useState<Record<number, boolean>>({});
+  const toggleHint = (index: number) => setOpenHints((prev) => ({ ...prev, [index]: !prev[index] }));
   const update = (index: number, patch: Partial<ProjectStage>) =>
     onChange(stages.map((stage, i) => (i === index ? ({ ...stage, ...patch } as ProjectStage) : stage)));
   const updateConfig = (index: number, patch: Record<string, string>) =>
@@ -186,21 +189,17 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                         <option value="feishu_text">Feishu text</option>
                         <option value="generic_json">Generic JSON</option>
                       </select>
-                      <details className="group">
-                        <summary className="relative cursor-pointer list-none outline-none focus-visible:outline-none focus-visible:ring-0">
-                          <Textarea
-                            className="min-h-[80px] w-full cursor-text pr-9"
-                            placeholder="留空则使用系统默认消息模板"
-                            value={stage.config?.message_template ?? ""}
-                            onChange={(e) => updateConfig(index, { message_template: e.target.value })}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <HelpCircle className="absolute right-3 top-2.5 h-4 w-4 text-muted transition-colors hover:text-ink group-open:text-primary" />
-                        </summary>
-                        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface p-3 text-xs leading-relaxed text-muted">
+                      <Textarea
+                        className="min-h-[80px] w-full"
+                        placeholder="留空则使用系统默认消息模板"
+                        value={stage.config?.message_template ?? ""}
+                        onChange={(e) => updateConfig(index, { message_template: e.target.value })}
+                      />
+                      {openHints[index] ? (
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface p-3 text-xs leading-relaxed text-muted">
                           {defaultMessageTemplate}
                         </pre>
-                      </details>
+                      ) : null}
                     </div>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-4 text-xs text-ink">
@@ -234,6 +233,11 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                   <IconButton label="Remove stage" onClick={() => remove(index)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </IconButton>
+                  {stage.type === "outbound_webhook" ? (
+                    <IconButton label="Default message template" active={Boolean(openHints[index])} onClick={() => toggleHint(index)}>
+                      <HelpCircle className="h-3.5 w-3.5" />
+                    </IconButton>
+                  ) : null}
                 </div>
               </div>
             </li>
@@ -265,21 +269,26 @@ function IconButton({
   children,
   label,
   onClick,
-  disabled
+  disabled,
+  active
 }: {
   children: React.ReactNode;
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  active?: boolean;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
+      aria-pressed={active}
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted hover:bg-muted/10 disabled:cursor-not-allowed disabled:opacity-40"
+      className={`inline-flex h-7 w-7 items-center justify-center rounded-md border hover:bg-muted/10 disabled:cursor-not-allowed disabled:opacity-40 ${
+        active ? "border-primary text-primary" : "border-border text-muted"
+      }`}
     >
       {children}
     </button>
