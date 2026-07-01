@@ -161,6 +161,21 @@ export function mockResponse(path: string, init?: RequestInit): unknown {
     return { data: mockProjects, pagination: { page: 1, page_size: 20, total: mockProjects.length } };
   }
   const projectMatch = pathname.match(/\/projects\/(\d+)$/);
+  if (projectMatch && init?.method === "DELETE") {
+    const projectID = Number(projectMatch[1]);
+    const project = mockProjects.find((item) => item.id === projectID);
+    if (project) {
+      const projectIndex = mockProjects.findIndex((item) => item.id === projectID);
+      mockProjects.splice(projectIndex, 1);
+      for (let i = mockTasks.length - 1; i >= 0; i -= 1) {
+        if (mockTasks[i].project_id === projectID) mockTasks.splice(i, 1);
+      }
+      for (let i = mockWebhookEvents.length - 1; i >= 0; i -= 1) {
+        if (mockWebhookEvents[i].project_id === projectID || mockWebhookEvents[i].project_key === project.project_key) mockWebhookEvents.splice(i, 1);
+      }
+    }
+    return {};
+  }
   if (projectMatch) {
     return { data: mockProjects.find((project) => project.id === Number(projectMatch[1])) ?? mockProjects[0] };
   }

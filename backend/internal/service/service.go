@@ -25,11 +25,12 @@ import (
 )
 
 var (
-	ErrProjectBusy         = errors.New("project has a running deploy task")
-	ErrMissingRollback     = errors.New("project rollback_cmd is empty")
-	ErrTaskNotFound        = errors.New("deploy task not found")
-	ErrTaskNotCancelable   = errors.New("deploy task is not pending or running")
-	ErrServiceShuttingDown = errors.New("service is shutting down")
+	ErrProjectBusy          = errors.New("project has a running deploy task")
+	ErrProjectHasActiveTask = errors.New("project has pending or running deploy task")
+	ErrMissingRollback      = errors.New("project rollback_cmd is empty")
+	ErrTaskNotFound         = errors.New("deploy task not found")
+	ErrTaskNotCancelable    = errors.New("deploy task is not pending or running")
+	ErrServiceShuttingDown  = errors.New("service is shutting down")
 )
 
 type Service struct {
@@ -61,6 +62,45 @@ func New(database *gorm.DB, cfg *config.Config, hub *sse.Hub, logger *zap.Logger
 		Logger:   logger,
 		cancels:  map[uint64]context.CancelFunc{},
 	}
+}
+
+func (s *Service) DeleteProject(ctx context.Context, projectID uint64) error {
+	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var project model.Project
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&project, projectID).Error; err != nil {
+			return err
+		}
+
+		var activeCount int64
+		if err := tx.Model(&model.DeployTask{}).
+			Where("project_id = ? AND status IN ?", projectID, []string{model.TaskPending, model.TaskRunning}).
+			Count(&activeCount).Error; err != nil {
+			return err
+		}
+		if activeCount > 0 {
+			return ErrProjectHasActiveTask
+		}
+
+		var taskIDs []uint64
+		if err := tx.Model(&model.DeployTask{}).Where("project_id = ?", projectID).Pluck("id", &taskIDs).Error; err != nil {
+			return err
+		}
+		if len(taskIDs) > 0 {
+			if err := tx.Where("task_id IN ?", taskIDs).Delete(&model.DeployTaskStage{}).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("project_id = ?", projectID).Delete(&model.DeployTask{}).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("project_id = ? OR project_key = ?", projectID, project.ProjectKey).Delete(&model.WebhookEvent{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&project).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func (s *Service) CreateDeployTask(ctx context.Context, project model.Project, triggerType string, ev *webhook.Event) (*model.DeployTask, error) {

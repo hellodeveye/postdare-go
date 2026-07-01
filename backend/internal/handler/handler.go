@@ -245,12 +245,19 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 }
 
 func (h *Handler) DeleteProject(c *gin.Context) {
-	project, ok := h.loadProject(c)
+	id, ok := parseUintParam(c, "project_id")
 	if !ok {
 		return
 	}
-	if err := h.DB.Delete(&project).Error; err != nil {
-		util.Error(c, http.StatusInternalServerError, "PROJECT_DELETE_FAILED", "Failed to delete project", nil)
+	if err := h.Service.DeleteProject(c.Request.Context(), id); err != nil {
+		switch {
+		case errors.Is(err, service.ErrProjectHasActiveTask):
+			util.Error(c, http.StatusConflict, "PROJECT_HAS_ACTIVE_TASK", "Project has a pending or running deploy task", nil)
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			util.Error(c, http.StatusNotFound, "PROJECT_NOT_FOUND", "Project not found", nil)
+		default:
+			util.Error(c, http.StatusInternalServerError, "PROJECT_DELETE_FAILED", "Failed to delete project", nil)
+		}
 		return
 	}
 	util.NoContent(c)

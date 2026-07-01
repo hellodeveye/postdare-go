@@ -32,6 +32,10 @@ export function updateProject(id: string | number, payload: Partial<Project>, to
   return apiRequest<DataResponse<Project>>(`/api/v1/projects/${id}`, { method: "PATCH", body: JSON.stringify(payload) }, token);
 }
 
+export function deleteProject(id: string | number, token?: string | null) {
+  return apiRequest<void>(`/api/v1/projects/${id}`, { method: "DELETE" }, token);
+}
+
 export function triggerDeploy(id: string | number, token?: string | null) {
   return apiRequest<DataResponse<DeployTask>>(`/api/v1/projects/${id}/deploy-tasks`, { method: "POST", body: JSON.stringify({}) }, token);
 }

@@ -58,11 +58,13 @@ Error response:
 | POST | `/api/v1/projects` | Create project |
 | GET | `/api/v1/projects/{project_id}` | Get project |
 | PATCH | `/api/v1/projects/{project_id}` | Update project |
-| DELETE | `/api/v1/projects/{project_id}` | Delete project metadata |
+| DELETE | `/api/v1/projects/{project_id}` | Delete project and related database records |
 | POST | `/api/v1/projects/{project_id}/deploy-tasks` | Trigger deploy, returns `202 Accepted` |
 | POST | `/api/v1/projects/{project_id}/rollback-tasks` | Trigger rollback, returns `202 Accepted` |
 | GET | `/api/v1/projects/{project_id}/app-logs` | Read app log tail |
 | GET | `/api/v1/projects/{project_id}/app-logs/stream` | Stream app log over SSE |
+
+Project deletion is destructive for database records: it removes the project, related deploy tasks, related deploy task stages, and webhook events associated with the project. It returns `409 Conflict` if the project has a `pending` or `running` deploy or rollback task. Physical deploy log files and application log files are not removed.
 
 ## Deploy Tasks
 
