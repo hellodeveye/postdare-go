@@ -1,6 +1,7 @@
 USE postdare_go;
 
 SET @schema_name = DATABASE();
+SET SESSION group_concat_max_len = 1048576;
 
 SET @has_default_outbound_webhook_url = (
   SELECT COUNT(*)
@@ -38,15 +39,20 @@ UPDATE projects p
 JOIN (
   SELECT
     p.id,
-    JSON_ARRAYAGG(
-      JSON_OBJECT(
-        'name', old_stage.stage_name,
-        'type', 'command',
-        'enabled', IF(old_stage.stage_enabled IS NULL, true, old_stage.stage_enabled),
-        'continue_on_error', IF(old_stage.stage_continue_on_error IS NULL, false, old_stage.stage_continue_on_error),
-        'config', JSON_OBJECT('command', old_stage.stage_command)
-      )
-      ORDER BY old_stage.stage_ord
+    CONCAT(
+      '[',
+      GROUP_CONCAT(
+        JSON_OBJECT(
+          'name', old_stage.stage_name,
+          'type', 'command',
+          'enabled', IF(old_stage.stage_enabled IS NULL, true, old_stage.stage_enabled),
+          'continue_on_error', IF(old_stage.stage_continue_on_error IS NULL, false, old_stage.stage_continue_on_error),
+          'config', JSON_OBJECT('command', old_stage.stage_command)
+        )
+        ORDER BY old_stage.stage_ord
+        SEPARATOR ','
+      ),
+      ']'
     ) AS typed_stages
   FROM projects p
   JOIN JSON_TABLE(
