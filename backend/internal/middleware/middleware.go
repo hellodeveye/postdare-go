@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"strings"
 	"time"
@@ -85,7 +86,7 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		if cfg.MCP.Enabled && cfg.MCP.APIToken != "" && constantStringEqual(tokenValue, cfg.MCP.APIToken) {
+		if cfg.MCP.Enabled && cfg.MCP.APIToken != "" && subtle.ConstantTimeCompare([]byte(tokenValue), []byte(cfg.MCP.APIToken)) == 1 {
 			c.Set(ActorKey, ActorMCP)
 			c.Set(RoleKey, "mcp")
 			c.Next()
@@ -111,15 +112,4 @@ func Auth(cfg *config.Config) gin.HandlerFunc {
 func IsMCP(c *gin.Context) bool {
 	v, _ := c.Get(ActorKey)
 	return v == ActorMCP
-}
-
-func constantStringEqual(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	var out byte
-	for i := 0; i < len(a); i++ {
-		out |= a[i] ^ b[i]
-	}
-	return out == 0
 }

@@ -6,9 +6,7 @@ export const mockProjects: Project[] = [
     name: "my-app",
     project_key: "my-app",
     git_provider: "github",
-    repo_url: "git@github.com:acme/my-app.git",
     branch: "main",
-    repo_dir: "/data/repos/my-app",
     app_dir: "/data/apps/my-app",
     deploy_stages: [
       { name: "pull_code", type: "command", config: { command: "cd /data/repos/my-app && git fetch --all && git reset --hard origin/main" }, enabled: true },
@@ -28,7 +26,6 @@ export const mockProjects: Project[] = [
     ],
     rollback_cmd: "bash /data/apps/my-app/rollback.sh",
     app_log_path: "/data/apps/my-app/logs/app.log",
-    systemd_service: "my-app",
     webhook_secret: "******",
     auto_deploy_enabled: true,
     created_at: new Date(Date.now() - 86400000).toISOString(),
@@ -39,9 +36,7 @@ export const mockProjects: Project[] = [
     name: "ship-worker",
     project_key: "ship-worker",
     git_provider: "gitee",
-    repo_url: "git@gitee.com:acme/ship-worker.git",
     branch: "develop",
-    repo_dir: "/data/repos/ship-worker",
     app_dir: "/data/apps/ship-worker",
     deploy_stages: [
       { name: "deploy", type: "command", config: { command: "bash /data/apps/ship-worker/deploy.sh" }, enabled: true }

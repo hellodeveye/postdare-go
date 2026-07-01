@@ -33,7 +33,7 @@ export function ProjectDetailPage() {
     <>
       <PageHeader
         title={data?.name ?? "Project"}
-        description={data ? `${data.git_provider} · ${data.branch} · ${data.repo_url}` : "Loading project"}
+        description={data ? `${data.git_provider} · ${data.branch}` : "Loading project"}
         actions={
           <>
             <Button variant="primary" onClick={() => deploy.mutate()} disabled={deploy.isPending}>
@@ -58,11 +58,9 @@ export function ProjectDetailPage() {
             </CardHeader>
             <CardContent className="grid gap-3 text-sm">
               <Info label="Project key" value={data?.project_key} />
-              <Info label="Repo directory" value={data?.repo_dir} />
               <Info label="App directory" value={data?.app_dir} />
               <Info label="Health check" value={healthCheckURL} />
               <Info label="App log" value={data?.app_log_path} />
-              <Info label="Systemd" value={data?.systemd_service} />
               <Info label="Auto deploy" value={data?.auto_deploy_enabled ? "enabled" : "disabled"} />
             </CardContent>
           </Card>

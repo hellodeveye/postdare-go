@@ -52,14 +52,11 @@ type Project struct {
 	Name              string         `gorm:"size:100;not null" json:"name"`
 	ProjectKey        string         `gorm:"size:100;uniqueIndex;not null" json:"project_key"`
 	GitProvider       string         `gorm:"size:50;not null;default:gitee" json:"git_provider"`
-	RepoURL           string         `gorm:"size:500;not null" json:"repo_url"`
 	Branch            string         `gorm:"size:100;not null;default:main" json:"branch"`
-	RepoDir           string         `gorm:"size:500;not null" json:"repo_dir"`
 	AppDir            string         `gorm:"size:500;not null" json:"app_dir"`
 	RollbackCmd       string         `gorm:"type:text" json:"rollback_cmd"`
 	Stages            []ProjectStage `gorm:"column:deploy_stages;serializer:json;type:json" json:"deploy_stages"`
 	AppLogPath        string         `gorm:"size:500" json:"app_log_path"`
-	SystemdService    string         `gorm:"size:100" json:"systemd_service"`
 	WebhookSecret     string         `gorm:"size:255" json:"webhook_secret,omitempty"`
 	AutoDeployEnabled bool           `gorm:"not null;default:false" json:"auto_deploy_enabled"`
 	CreatedAt         time.Time      `json:"created_at"`
@@ -124,17 +121,6 @@ type DeployTaskStage struct {
 	ErrorMessage string     `gorm:"type:text" json:"error_message"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
-}
-
-type DeployArtifact struct {
-	ID           uint64    `gorm:"primaryKey" json:"id"`
-	ProjectID    uint64    `gorm:"not null;index:idx_project_id" json:"project_id"`
-	TaskID       uint64    `gorm:"not null;index:idx_task_id" json:"task_id"`
-	CommitID     string    `gorm:"size:100" json:"commit_id"`
-	ArtifactPath string    `gorm:"size:500" json:"artifact_path"`
-	BackupPath   string    `gorm:"size:500" json:"backup_path"`
-	Status       string    `gorm:"size:50" json:"status"`
-	CreatedAt    time.Time `json:"created_at"`
 }
 
 type WebhookEvent struct {

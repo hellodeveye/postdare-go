@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -192,9 +193,9 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		return
 	}
 	allowed := map[string]bool{
-		"name": true, "project_key": true, "git_provider": true, "repo_url": true, "branch": true,
-		"repo_dir": true, "app_dir": true, "rollback_cmd": true, "deploy_stages": true,
-		"app_log_path": true, "systemd_service": true, "webhook_secret": true,
+		"name": true, "project_key": true, "git_provider": true, "branch": true,
+		"app_dir": true, "rollback_cmd": true, "deploy_stages": true,
+		"app_log_path": true, "webhook_secret": true,
 		"auto_deploy_enabled": true,
 	}
 	updates := map[string]interface{}{}
@@ -601,7 +602,7 @@ func (h *Handler) handleWebhook(c *gin.Context, provider string, parser webhook.
 	}
 	signatureValid := parser.VerifySignature(project.WebhookSecret, c.Request.Header, body)
 	if provider == model.GitProviderGitee && project.WebhookSecret != "" {
-		signatureValid = signatureValid || constantStringEqual(c.Query("token"), project.WebhookSecret)
+		signatureValid = signatureValid || subtle.ConstantTimeCompare([]byte(c.Query("token")), []byte(project.WebhookSecret)) == 1
 	}
 
 	dbEvent := model.WebhookEvent{
@@ -723,11 +724,11 @@ func validateProject(project model.Project) error {
 	if project.GitProvider != model.GitProviderGitee && project.GitProvider != model.GitProviderGitHub {
 		return fmt.Errorf("git_provider must be gitee or github")
 	}
-	if strings.TrimSpace(project.RepoURL) == "" || strings.TrimSpace(project.RepoDir) == "" || strings.TrimSpace(project.AppDir) == "" {
-		return fmt.Errorf("repo_url, repo_dir and app_dir are required")
+	if strings.TrimSpace(project.AppDir) == "" {
+		return fmt.Errorf("app_dir is required")
 	}
-	if !filepath.IsAbs(project.RepoDir) || !filepath.IsAbs(project.AppDir) {
-		return fmt.Errorf("repo_dir and app_dir must be absolute paths")
+	if !filepath.IsAbs(project.AppDir) {
+		return fmt.Errorf("app_dir must be an absolute path")
 	}
 	if strings.TrimSpace(project.Branch) == "" {
 		return fmt.Errorf("branch is required")
@@ -839,20 +840,14 @@ func applyProjectUpdate(project *model.Project, key string, value interface{}) e
 		project.ProjectKey = stringValue
 	case "git_provider":
 		project.GitProvider = stringValue
-	case "repo_url":
-		project.RepoURL = stringValue
 	case "branch":
 		project.Branch = stringValue
-	case "repo_dir":
-		project.RepoDir = stringValue
 	case "app_dir":
 		project.AppDir = stringValue
 	case "rollback_cmd":
 		project.RollbackCmd = stringValue
 	case "app_log_path":
 		project.AppLogPath = stringValue
-	case "systemd_service":
-		project.SystemdService = stringValue
 	case "webhook_secret":
 		project.WebhookSecret = stringValue
 	case "auto_deploy_enabled":
@@ -873,12 +868,8 @@ func projectUpdateValue(project model.Project, key string) interface{} {
 		return project.ProjectKey
 	case "git_provider":
 		return project.GitProvider
-	case "repo_url":
-		return project.RepoURL
 	case "branch":
 		return project.Branch
-	case "repo_dir":
-		return project.RepoDir
 	case "app_dir":
 		return project.AppDir
 	case "rollback_cmd":
@@ -887,8 +878,6 @@ func projectUpdateValue(project model.Project, key string) interface{} {
 		return project.Stages
 	case "app_log_path":
 		return project.AppLogPath
-	case "systemd_service":
-		return project.SystemdService
 	case "webhook_secret":
 		return project.WebhookSecret
 	case "auto_deploy_enabled":
@@ -1086,15 +1075,4 @@ func safePathInDir(path string, baseDir string) (string, error) {
 		}
 	}
 	return cleanPath, nil
-}
-
-func constantStringEqual(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	var out byte
-	for i := 0; i < len(a); i++ {
-		out |= a[i] ^ b[i]
-	}
-	return out == 0
 }

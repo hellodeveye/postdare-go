@@ -15,14 +15,11 @@ CREATE TABLE IF NOT EXISTS projects (
   name VARCHAR(100) NOT NULL,
   project_key VARCHAR(100) NOT NULL UNIQUE,
   git_provider VARCHAR(50) NOT NULL DEFAULT 'gitee',
-  repo_url VARCHAR(500) NOT NULL,
   branch VARCHAR(100) NOT NULL DEFAULT 'main',
-  repo_dir VARCHAR(500) NOT NULL,
   app_dir VARCHAR(500) NOT NULL,
   rollback_cmd TEXT,
   deploy_stages JSON,
   app_log_path VARCHAR(500),
-  systemd_service VARCHAR(100),
   webhook_secret VARCHAR(255),
   auto_deploy_enabled TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL,
@@ -62,19 +59,6 @@ CREATE TABLE IF NOT EXISTS deploy_task_stages (
   error_message TEXT,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
-  INDEX idx_task_id (task_id)
-);
-
-CREATE TABLE IF NOT EXISTS deploy_artifacts (
-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
-  project_id BIGINT NOT NULL,
-  task_id BIGINT NOT NULL,
-  commit_id VARCHAR(100),
-  artifact_path VARCHAR(500),
-  backup_path VARCHAR(500),
-  status VARCHAR(50),
-  created_at DATETIME NOT NULL,
-  INDEX idx_project_id (project_id),
   INDEX idx_task_id (task_id)
 );
 

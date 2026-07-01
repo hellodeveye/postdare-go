@@ -26,9 +26,7 @@ func TestExecuteDeployKeepsSuccessAfterNotifyStage(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
 			commandStage("noop", "true", true),
@@ -66,9 +64,7 @@ func TestExecuteRollbackKeepsRollbackedAfterNotifyStage(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		RollbackCmd: "true",
 		Stages: []model.ProjectStage{
@@ -103,9 +99,7 @@ func TestExecuteDeployRunsDynamicStagesInOrder(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
 			commandStage("checkout", "true", true),
@@ -160,9 +154,7 @@ func TestExecuteDeployFailsWhenStageFailsWithoutContinueOnError(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
 			commandStage("checkout", "true", true),
@@ -210,9 +202,7 @@ func TestFailedDeployRunsFailedOutboundWebhookStage(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
 			commandStage("build", "false", true),
@@ -261,9 +251,7 @@ func TestShutdownRejectsNewDeployTasks(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
@@ -283,9 +271,7 @@ func TestStartTaskRegistersCancelBeforeLaunch(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
 			commandStage("wait", "sleep 2", true),
@@ -323,9 +309,7 @@ func TestCanceledDeployDoesNotSendFailureNotification(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
 			commandStage("wait", "sleep 30", true),
@@ -383,9 +367,7 @@ func TestCanceledHealthCheckDoesNotSendFailureNotification(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
 			commandStage("noop", "true", true),

@@ -37,9 +37,7 @@ func TestUpdateProjectPersistsDeployStages(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     "/data/repo",
 		AppDir:      "/data/app",
 	}
 	if err := database.Create(&project).Error; err != nil {
@@ -110,9 +108,7 @@ func TestUpdateProjectPreservesMaskedOutboundWebhookURL(t *testing.T) {
 		Name:        "app",
 		ProjectKey:  "app",
 		GitProvider: model.GitProviderGitHub,
-		RepoURL:     "git@example.com:app.git",
 		Branch:      "main",
-		RepoDir:     "/data/repo",
 		AppDir:      "/data/app",
 		Stages: []model.ProjectStage{{
 			Name:    "outbound_webhook",
@@ -169,7 +165,7 @@ func TestUpdateProjectRejectsStageWithoutName(t *testing.T) {
 	router := gin.New()
 	router.PATCH("/projects/:project_id", h.UpdateProject)
 
-	project := model.Project{Name: "app", ProjectKey: "app", GitProvider: model.GitProviderGitHub, RepoURL: "git@example.com:app.git", Branch: "main", RepoDir: "/data/repo", AppDir: "/data/app"}
+	project := model.Project{Name: "app", ProjectKey: "app", GitProvider: model.GitProviderGitHub, Branch: "main",AppDir: "/data/app"}
 	if err := database.Create(&project).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -206,7 +202,7 @@ func TestUpdateProjectRejectsEnabledOutboundWebhookWithoutURL(t *testing.T) {
 	router := gin.New()
 	router.PATCH("/projects/:project_id", h.UpdateProject)
 
-	project := model.Project{Name: "app", ProjectKey: "app", GitProvider: model.GitProviderGitHub, RepoURL: "git@example.com:app.git", Branch: "main", RepoDir: "/data/repo", AppDir: "/data/app"}
+	project := model.Project{Name: "app", ProjectKey: "app", GitProvider: model.GitProviderGitHub, Branch: "main",AppDir: "/data/app"}
 	if err := database.Create(&project).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -236,7 +232,7 @@ func TestUpdateProjectRejectsEnabledHealthCheckWithoutURL(t *testing.T) {
 	router := gin.New()
 	router.PATCH("/projects/:project_id", h.UpdateProject)
 
-	project := model.Project{Name: "app", ProjectKey: "app", GitProvider: model.GitProviderGitHub, RepoURL: "git@example.com:app.git", Branch: "main", RepoDir: "/data/repo", AppDir: "/data/app"}
+	project := model.Project{Name: "app", ProjectKey: "app", GitProvider: model.GitProviderGitHub, Branch: "main",AppDir: "/data/app"}
 	if err := database.Create(&project).Error; err != nil {
 		t.Fatal(err)
 	}

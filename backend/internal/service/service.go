@@ -27,7 +27,6 @@ import (
 var (
 	ErrProjectBusy         = errors.New("project has a running deploy task")
 	ErrMissingRollback     = errors.New("project rollback_cmd is empty")
-	ErrMutationDisabled    = errors.New("mcp mutation tools are disabled")
 	ErrTaskNotFound        = errors.New("deploy task not found")
 	ErrTaskNotCancelable   = errors.New("deploy task is not pending or running")
 	ErrServiceShuttingDown = errors.New("service is shutting down")
@@ -583,20 +582,6 @@ func (s *Service) finishTask(ctx context.Context, task *model.DeployTask, status
 		"current_stage": task.CurrentStage,
 	}).Error
 	runner.AppendLog(task.LogFile, s.Hub, task.ID, "task", "task finished with status "+status)
-}
-
-func (s *Service) ensureNoRunningTask(projectID uint64) error {
-	var count int64
-	err := s.DB.Model(&model.DeployTask{}).
-		Where("project_id = ? AND status IN ?", projectID, []string{model.TaskPending, model.TaskRunning}).
-		Count(&count).Error
-	if err != nil {
-		return err
-	}
-	if count > 0 {
-		return ErrProjectBusy
-	}
-	return nil
 }
 
 func (s *Service) unregisterCancel(taskID uint64) {

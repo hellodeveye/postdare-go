@@ -1,6 +1,9 @@
 package sse
 
-import "sync"
+import (
+	"strconv"
+	"sync"
+)
 
 type Hub struct {
 	mu      sync.RWMutex
@@ -44,23 +47,5 @@ func (h *Hub) Publish(topic string, line string) {
 }
 
 func DeployTopic(taskID uint64) string {
-	return "deploy:" + uintToString(taskID)
-}
-
-func AppTopic(projectID uint64) string {
-	return "app:" + uintToString(projectID)
-}
-
-func uintToString(v uint64) string {
-	if v == 0 {
-		return "0"
-	}
-	buf := [20]byte{}
-	i := len(buf)
-	for v > 0 {
-		i--
-		buf[i] = byte('0' + v%10)
-		v /= 10
-	}
-	return string(buf[i:])
+	return "deploy:" + strconv.FormatUint(taskID, 10)
 }

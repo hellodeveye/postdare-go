@@ -26,7 +26,6 @@ func Open(cfg config.DatabaseConfig) (*gorm.DB, error) {
 		&model.Project{},
 		&model.DeployTask{},
 		&model.DeployTaskStage{},
-		&model.DeployArtifact{},
 		&model.WebhookEvent{},
 		&model.Setting{},
 	); err != nil {

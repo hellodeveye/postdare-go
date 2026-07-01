@@ -145,8 +145,7 @@ password: admin123456
 
 - 项目名称和项目标识
 - Git 平台：`gitee` 或 `github`
-- 仓库地址和分支
-- 本地代码目录：例如 `/data/repos/my-app`
+- 分支
 - 应用部署目录：例如 `/data/apps/my-app`
 - 部署阶段列表：例如 `pull_code`、`unit_test`、`build`、`deploy`、`health_check`、`outbound_webhook`
 - 回滚命令
@@ -159,9 +158,7 @@ password: admin123456
 项目名称：my-app
 项目标识：my-app
 Git 平台：github
-仓库地址：git@github.com:xxx/my-app.git
 分支：main
-本地代码目录：/data/repos/my-app
 应用部署目录：/data/apps/my-app
 部署阶段：
   1. pull_code：cd /data/repos/my-app && git fetch --all && git reset --hard origin/main
@@ -173,7 +170,6 @@ Git 平台：github
   7. outbound_webhook：always，https://open.feishu.cn/open-apis/bot/v2/hook/xxx，feishu_text
 回滚命令：bash /data/apps/my-app/rollback.sh
 应用日志路径：/data/apps/my-app/logs/app.log
-systemd 服务名：my-app
 自动部署：开启
 ```
 

@@ -46,15 +46,7 @@ export function ProjectFields({ value, onChange }: Props) {
       <Field label="Branch">
         <Input value={value.branch ?? "main"} onChange={(e) => set("branch", e.target.value)} />
       </Field>
-      <Field label="Repository URL">
-        <Input value={value.repo_url ?? ""} onChange={(e) => set("repo_url", e.target.value)} />
-      </Field>
-      <Field label="Systemd service">
-        <Input value={value.systemd_service ?? ""} onChange={(e) => set("systemd_service", e.target.value)} />
-      </Field>
-      <Field label="Repo directory">
-        <Input value={value.repo_dir ?? ""} onChange={(e) => set("repo_dir", e.target.value)} />
-      </Field>
+
       <Field label="App directory">
         <Input value={value.app_dir ?? ""} onChange={(e) => set("app_dir", e.target.value)} />
       </Field>

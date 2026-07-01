@@ -42,14 +42,11 @@ export interface Project {
   name: string;
   project_key: string;
   git_provider: GitProvider;
-  repo_url: string;
   branch: string;
-  repo_dir: string;
   app_dir: string;
   rollback_cmd?: string;
   deploy_stages?: ProjectStage[];
   app_log_path?: string;
-  systemd_service?: string;
   webhook_secret?: string;
   auto_deploy_enabled: boolean;
   created_at?: string;
