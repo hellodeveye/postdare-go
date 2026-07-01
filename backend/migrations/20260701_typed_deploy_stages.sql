@@ -42,12 +42,16 @@ JOIN (
     CONCAT(
       '[',
       GROUP_CONCAT(
-        JSON_OBJECT(
-          'name', old_stage.stage_name,
-          'type', 'command',
-          'enabled', IF(old_stage.stage_enabled IS NULL, true, old_stage.stage_enabled),
-          'continue_on_error', IF(old_stage.stage_continue_on_error IS NULL, false, old_stage.stage_continue_on_error),
-          'config', JSON_OBJECT('command', old_stage.stage_command)
+        CONCAT(
+          '{"name":',
+          JSON_QUOTE(old_stage.stage_name),
+          ',"type":"command","enabled":',
+          IF(COALESCE(old_stage.stage_enabled, true), 'true', 'false'),
+          ',"continue_on_error":',
+          IF(COALESCE(old_stage.stage_continue_on_error, false), 'true', 'false'),
+          ',"config":{"command":',
+          JSON_QUOTE(COALESCE(old_stage.stage_command, '')),
+          '}}'
         )
         ORDER BY old_stage.stage_ord
         SEPARATOR ','
@@ -79,11 +83,13 @@ UPDATE projects
 SET deploy_stages = JSON_ARRAY_APPEND(
   deploy_stages,
   '$',
-  JSON_OBJECT(
-    'name', 'health_check',
-    'type', 'health_check',
-    'enabled', true,
-    'config', JSON_OBJECT('url', health_url)
+  JSON_EXTRACT(
+    CONCAT(
+      '{"name":"health_check","type":"health_check","enabled":true,"config":{"url":',
+      JSON_QUOTE(health_url),
+      '}}'
+    ),
+    '$'
   )
 )
 WHERE health_url IS NOT NULL
@@ -94,14 +100,7 @@ UPDATE projects
 SET deploy_stages = JSON_ARRAY_APPEND(
   deploy_stages,
   '$',
-  JSON_OBJECT(
-    'name', 'outbound_webhook',
-    'type', 'outbound_webhook',
-    'enabled', true,
-    'run_when', 'always',
-    'continue_on_error', true,
-    'config', JSON_OBJECT('template', 'dingtalk_text')
-  )
+  JSON_EXTRACT('{"name":"outbound_webhook","type":"outbound_webhook","enabled":true,"run_when":"always","continue_on_error":true,"config":{"template":"dingtalk_text"}}', '$')
 )
 WHERE default_outbound_webhook_url IS NOT NULL
   AND default_outbound_webhook_url <> ''
