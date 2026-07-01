@@ -67,9 +67,11 @@ export function ProjectFields({ value, onChange }: Props) {
       <div className="lg:col-span-2">
         <StageEditor stages={value.deploy_stages ?? []} onChange={(next) => set("deploy_stages", next)} />
       </div>
-      <Field label="Rollback command">
-        <Textarea value={value.rollback_cmd ?? ""} onChange={(e) => set("rollback_cmd", e.target.value)} />
-      </Field>
+      <div className="lg:col-span-2">
+        <Field label="Rollback command">
+          <Textarea value={value.rollback_cmd ?? ""} onChange={(e) => set("rollback_cmd", e.target.value)} />
+        </Field>
+      </div>
       <label className="flex items-center gap-2 text-sm text-ink">
         <input
           type="checkbox"
