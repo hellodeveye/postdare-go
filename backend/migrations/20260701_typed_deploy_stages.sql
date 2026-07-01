@@ -82,7 +82,15 @@ SET @sql = IF(
        CONCAT(
          ''{"name":"outbound_webhook","type":"outbound_webhook","enabled":true,"run_when":"always","continue_on_error":true,"config":{"url":'',
          JSON_QUOTE(notify_webhook),
-         '',"template":"dingtalk_text"}}''
+         '',"template":'',
+         JSON_QUOTE(
+           CASE
+             WHEN LOWER(notify_webhook) LIKE ''%feishu%'' OR LOWER(notify_webhook) LIKE ''%larksuite%'' THEN ''feishu_text''
+             WHEN LOWER(notify_webhook) LIKE ''%qyapi.weixin%'' OR LOWER(notify_webhook) LIKE ''%weixin%'' OR LOWER(notify_webhook) LIKE ''%wechat%'' OR LOWER(notify_webhook) LIKE ''%wecom%'' THEN ''wecom_text''
+             ELSE ''dingtalk_text''
+           END
+         ),
+         ''}}''
        ),
        ''$''
      )

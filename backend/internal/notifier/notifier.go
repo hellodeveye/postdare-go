@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -76,8 +78,18 @@ func (n *Notifier) SendOutboundWebhook(project model.Project, task model.DeployT
 		return err
 	}
 	defer resp.Body.Close()
+	respBody, readErr := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 	if resp.StatusCode >= 300 {
 		err := fmt.Errorf("outbound webhook returned status %d", resp.StatusCode)
+		n.Logger.Warn("outbound webhook failed", zap.Uint64("task_id", task.ID), zap.String("webhook", maskedURL(cfg.URL)), zap.Error(err))
+		return err
+	}
+	if readErr != nil {
+		err := fmt.Errorf("read outbound webhook response: %w", readErr)
+		n.Logger.Warn("outbound webhook failed", zap.Uint64("task_id", task.ID), zap.String("webhook", maskedURL(cfg.URL)), zap.Error(err))
+		return err
+	}
+	if err := validateWebhookResponse(cfg.Template, respBody); err != nil {
 		n.Logger.Warn("outbound webhook failed", zap.Uint64("task_id", task.ID), zap.String("webhook", maskedURL(cfg.URL)), zap.Error(err))
 		return err
 	}
@@ -105,10 +117,7 @@ func renderMessage(project model.Project, task model.DeployTask, messageTemplate
 }
 
 func renderPayload(cfg model.OutboundWebhookStageConfig, content string) ([]byte, error) {
-	templateName := strings.TrimSpace(cfg.Template)
-	if templateName == "" {
-		templateName = TemplateDingTalkText
-	}
+	templateName := outboundTemplateName(cfg.Template)
 	if templateName == TemplateGenericJSON {
 		var raw json.RawMessage
 		if err := json.Unmarshal([]byte(content), &raw); err != nil {
@@ -126,6 +135,78 @@ func renderPayload(cfg model.OutboundWebhookStageConfig, content string) ([]byte
 		return nil, fmt.Errorf("unsupported outbound webhook template %q", templateName)
 	}
 	return json.Marshal(body)
+}
+
+func outboundTemplateName(templateName string) string {
+	templateName = strings.TrimSpace(templateName)
+	if templateName == "" {
+		return TemplateDingTalkText
+	}
+	return templateName
+}
+
+func validateWebhookResponse(templateName string, body []byte) error {
+	body = bytes.TrimSpace(body)
+	if len(body) == 0 {
+		return nil
+	}
+	var decoded map[string]interface{}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&decoded); err != nil {
+		return nil
+	}
+	switch outboundTemplateName(templateName) {
+	case TemplateFeishuText:
+		if code, ok := responseCode(decoded, "code", "StatusCode"); ok && code != 0 {
+			return fmt.Errorf("outbound webhook business error %s: %s", formatResponseCode(code), responseMessage(decoded))
+		}
+	case TemplateDingTalkText, TemplateWeComText:
+		if code, ok := responseCode(decoded, "errcode"); ok && code != 0 {
+			return fmt.Errorf("outbound webhook business error %s: %s", formatResponseCode(code), responseMessage(decoded))
+		}
+	}
+	return nil
+}
+
+func responseCode(decoded map[string]interface{}, keys ...string) (float64, bool) {
+	for _, key := range keys {
+		value, ok := decoded[key]
+		if !ok {
+			continue
+		}
+		switch v := value.(type) {
+		case json.Number:
+			n, err := v.Float64()
+			return n, err == nil
+		case float64:
+			return v, true
+		case int:
+			return float64(v), true
+		case string:
+			n, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+			return n, err == nil
+		}
+	}
+	return 0, false
+}
+
+func formatResponseCode(code float64) string {
+	if code == float64(int64(code)) {
+		return strconv.FormatInt(int64(code), 10)
+	}
+	return strconv.FormatFloat(code, 'f', -1, 64)
+}
+
+func responseMessage(decoded map[string]interface{}) string {
+	for _, key := range []string{"msg", "errmsg", "message", "StatusMessage"} {
+		if value, ok := decoded[key]; ok {
+			if s, ok := value.(string); ok && strings.TrimSpace(s) != "" {
+				return s
+			}
+		}
+	}
+	return "no message"
 }
 
 func dingtalkText(content string) map[string]interface{} {

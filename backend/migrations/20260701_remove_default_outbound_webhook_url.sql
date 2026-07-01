@@ -28,9 +28,17 @@ SET @sql = IF(
              WHEN JSON_UNQUOTE(JSON_EXTRACT(stage.stage_json, ''$.type'')) = ''outbound_webhook''
                AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(stage.stage_json, ''$.config.url'')), '''') = ''''
              THEN JSON_SET(
-               JSON_SET(stage.stage_json, ''$.config'', COALESCE(JSON_EXTRACT(stage.stage_json, ''$.config''), JSON_OBJECT())),
-               ''$.config.url'',
-               p.default_outbound_webhook_url
+               JSON_SET(
+                 JSON_SET(stage.stage_json, ''$.config'', COALESCE(JSON_EXTRACT(stage.stage_json, ''$.config''), JSON_OBJECT())),
+                 ''$.config.url'',
+                 p.default_outbound_webhook_url
+               ),
+               ''$.config.template'',
+               CASE
+                 WHEN LOWER(p.default_outbound_webhook_url) LIKE ''%feishu%'' OR LOWER(p.default_outbound_webhook_url) LIKE ''%larksuite%'' THEN ''feishu_text''
+                 WHEN LOWER(p.default_outbound_webhook_url) LIKE ''%qyapi.weixin%'' OR LOWER(p.default_outbound_webhook_url) LIKE ''%weixin%'' OR LOWER(p.default_outbound_webhook_url) LIKE ''%wechat%'' OR LOWER(p.default_outbound_webhook_url) LIKE ''%wecom%'' THEN ''wecom_text''
+                 ELSE ''dingtalk_text''
+               END
              )
              ELSE stage.stage_json
            END
@@ -69,7 +77,15 @@ SET @sql = IF(
        CONCAT(
          ''{"name":"outbound_webhook","type":"outbound_webhook","enabled":true,"run_when":"always","continue_on_error":true,"config":{"url":'',
          JSON_QUOTE(default_outbound_webhook_url),
-         '',"template":"dingtalk_text"}}''
+         '',"template":'',
+         JSON_QUOTE(
+           CASE
+             WHEN LOWER(default_outbound_webhook_url) LIKE ''%feishu%'' OR LOWER(default_outbound_webhook_url) LIKE ''%larksuite%'' THEN ''feishu_text''
+             WHEN LOWER(default_outbound_webhook_url) LIKE ''%qyapi.weixin%'' OR LOWER(default_outbound_webhook_url) LIKE ''%weixin%'' OR LOWER(default_outbound_webhook_url) LIKE ''%wechat%'' OR LOWER(default_outbound_webhook_url) LIKE ''%wecom%'' THEN ''wecom_text''
+             ELSE ''dingtalk_text''
+           END
+         ),
+         ''}}''
        ),
        ''$''
      )

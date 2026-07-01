@@ -44,3 +44,35 @@ func TestSendOutboundWebhookRendersFeishuTextTemplate(t *testing.T) {
 		t.Fatalf("unexpected rendered text: %q", text)
 	}
 }
+
+func TestSendOutboundWebhookDetectsFeishuBusinessError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":9499,"msg":"Bad Request","StatusCode":9499,"StatusMessage":"Bad Request"}`))
+	}))
+	defer server.Close()
+
+	err := New(zap.NewNop()).SendOutboundWebhook(model.Project{Name: "app"}, model.DeployTask{ID: 42}, model.OutboundWebhookStageConfig{
+		URL:      server.URL,
+		Template: TemplateFeishuText,
+	})
+	if err == nil || !strings.Contains(err.Error(), "9499") {
+		t.Fatalf("expected Feishu business error, got %v", err)
+	}
+}
+
+func TestSendOutboundWebhookDetectsDingTalkBusinessError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"errcode":310000,"errmsg":"keywords not in content"}`))
+	}))
+	defer server.Close()
+
+	err := New(zap.NewNop()).SendOutboundWebhook(model.Project{Name: "app"}, model.DeployTask{ID: 42}, model.OutboundWebhookStageConfig{
+		URL:      server.URL,
+		Template: TemplateDingTalkText,
+	})
+	if err == nil || !strings.Contains(err.Error(), "310000") {
+		t.Fatalf("expected DingTalk business error, got %v", err)
+	}
+}
