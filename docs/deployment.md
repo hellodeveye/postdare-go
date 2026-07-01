@@ -29,7 +29,9 @@ stage types are `command`, `health_check`, and `outbound_webhook`.
 - `run_when: success|failed|always` runs a stage after the main flow reaches a final status.
 
 `health_check` and outbound WebHook calls are regular stages, so their order is controlled
-by the project configuration. Rollback stays separate and uses `rollback_cmd`.
+by the project configuration. Rollback stays separate and uses `rollback_cmd`; after a
+rollback reaches a final status, matching deferred stages such as `outbound_webhook`
+run according to their `run_when` value.
 
 Project commands should be explicit and absolute, for example:
 

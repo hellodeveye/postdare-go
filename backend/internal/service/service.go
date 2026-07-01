@@ -246,18 +246,18 @@ func (s *Service) executeDeploy(ctx context.Context, project model.Project, task
 func (s *Service) executeRollback(ctx context.Context, project model.Project, task *model.DeployTask) {
 	if !s.executeCommandStage(ctx, task, "rollback", project.RollbackCmd) {
 		if task.Status != model.TaskCanceled {
-			s.sendDefaultOutboundWebhook(ctx, project, *task)
+			s.executeDeferredStages(context.Background(), project, task)
 		}
 		return
 	}
 	if !s.executeHealthCheckStage(ctx, task, project.HealthURL) {
 		if task.Status != model.TaskCanceled {
-			s.sendDefaultOutboundWebhook(ctx, project, *task)
+			s.executeDeferredStages(context.Background(), project, task)
 		}
 		return
 	}
 	s.finishTask(ctx, task, model.TaskRollbacked, "")
-	s.sendDefaultOutboundWebhook(ctx, project, *task)
+	s.executeDeferredStages(context.Background(), project, task)
 }
 
 // stageOutcome is the result of running a single command stage without any
@@ -544,9 +544,6 @@ func (s *Service) runOutboundWebhookStage(ctx context.Context, project model.Pro
 	stage := s.startStage(ctx, task, name)
 	webhookURL := strings.TrimSpace(cfg.URL)
 	if webhookURL == "" {
-		webhookURL = project.DefaultOutboundWebhookURL
-	}
-	if webhookURL == "" {
 		now := time.Now()
 		stage.Status = model.StageSkipped
 		stage.FinishedAt = &now
@@ -573,13 +570,6 @@ func (s *Service) runOutboundWebhookStage(ctx context.Context, project model.Pro
 	_ = s.DB.WithContext(ctx).Save(&stage).Error
 	runner.AppendLog(task.LogFile, s.Hub, task.ID, name, "outbound webhook sent")
 	return stageOK, nil
-}
-
-func (s *Service) sendDefaultOutboundWebhook(ctx context.Context, project model.Project, task model.DeployTask) {
-	err := s.Notifier.SendOutboundWebhook(project, task, model.OutboundWebhookStageConfig{URL: project.DefaultOutboundWebhookURL})
-	if err != nil {
-		runner.AppendLog(task.LogFile, s.Hub, task.ID, "outbound_webhook", "outbound webhook failed: "+err.Error())
-	}
 }
 
 func (s *Service) startStage(ctx context.Context, task *model.DeployTask, name string) model.DeployTaskStage {

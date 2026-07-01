@@ -48,24 +48,23 @@ type User struct {
 }
 
 type Project struct {
-	ID                        uint64         `gorm:"primaryKey" json:"id"`
-	Name                      string         `gorm:"size:100;not null" json:"name"`
-	ProjectKey                string         `gorm:"size:100;uniqueIndex;not null" json:"project_key"`
-	GitProvider               string         `gorm:"size:50;not null;default:gitee" json:"git_provider"`
-	RepoURL                   string         `gorm:"size:500;not null" json:"repo_url"`
-	Branch                    string         `gorm:"size:100;not null;default:main" json:"branch"`
-	RepoDir                   string         `gorm:"size:500;not null" json:"repo_dir"`
-	AppDir                    string         `gorm:"size:500;not null" json:"app_dir"`
-	RollbackCmd               string         `gorm:"type:text" json:"rollback_cmd"`
-	Stages                    []ProjectStage `gorm:"column:deploy_stages;serializer:json;type:json" json:"deploy_stages"`
-	HealthURL                 string         `gorm:"size:500" json:"health_url"`
-	AppLogPath                string         `gorm:"size:500" json:"app_log_path"`
-	SystemdService            string         `gorm:"size:100" json:"systemd_service"`
-	WebhookSecret             string         `gorm:"size:255" json:"webhook_secret,omitempty"`
-	DefaultOutboundWebhookURL string         `gorm:"size:1000" json:"default_outbound_webhook_url,omitempty"`
-	AutoDeployEnabled         bool           `gorm:"not null;default:false" json:"auto_deploy_enabled"`
-	CreatedAt                 time.Time      `json:"created_at"`
-	UpdatedAt                 time.Time      `json:"updated_at"`
+	ID                uint64         `gorm:"primaryKey" json:"id"`
+	Name              string         `gorm:"size:100;not null" json:"name"`
+	ProjectKey        string         `gorm:"size:100;uniqueIndex;not null" json:"project_key"`
+	GitProvider       string         `gorm:"size:50;not null;default:gitee" json:"git_provider"`
+	RepoURL           string         `gorm:"size:500;not null" json:"repo_url"`
+	Branch            string         `gorm:"size:100;not null;default:main" json:"branch"`
+	RepoDir           string         `gorm:"size:500;not null" json:"repo_dir"`
+	AppDir            string         `gorm:"size:500;not null" json:"app_dir"`
+	RollbackCmd       string         `gorm:"type:text" json:"rollback_cmd"`
+	Stages            []ProjectStage `gorm:"column:deploy_stages;serializer:json;type:json" json:"deploy_stages"`
+	HealthURL         string         `gorm:"size:500" json:"health_url"`
+	AppLogPath        string         `gorm:"size:500" json:"app_log_path"`
+	SystemdService    string         `gorm:"size:100" json:"systemd_service"`
+	WebhookSecret     string         `gorm:"size:255" json:"webhook_secret,omitempty"`
+	AutoDeployEnabled bool           `gorm:"not null;default:false" json:"auto_deploy_enabled"`
+	CreatedAt         time.Time      `json:"created_at"`
+	UpdatedAt         time.Time      `json:"updated_at"`
 }
 
 // ProjectStage is one entry in a project's ordered, user-defined deploy pipeline.

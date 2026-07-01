@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS projects (
   app_log_path VARCHAR(500),
   systemd_service VARCHAR(100),
   webhook_secret VARCHAR(255),
-  default_outbound_webhook_url VARCHAR(1000),
   auto_deploy_enabled TINYINT(1) NOT NULL DEFAULT 0,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL

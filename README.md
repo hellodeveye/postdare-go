@@ -141,7 +141,6 @@ password: admin123456
 - 健康检查 URL
 - 应用日志路径
 - Webhook secret
-- 默认出站 WebHook
 
 示例配置：
 
@@ -160,7 +159,7 @@ Git 平台：github
   4. build：cd /data/repos/my-app && mvn package -DskipTests
   5. deploy：bash /data/apps/my-app/deploy.sh
   6. health_check：http://127.0.0.1:8080/actuator/health
-  7. outbound_webhook：always，feishu_text
+  7. outbound_webhook：always，https://open.feishu.cn/open-apis/bot/v2/hook/xxx，feishu_text
 回滚命令：bash /data/apps/my-app/rollback.sh
 健康检查 URL：http://127.0.0.1:8080/actuator/health
 应用日志路径：/data/apps/my-app/logs/app.log
@@ -249,7 +248,7 @@ GET /api/v1/projects/{project_id}/app-logs/stream
 
 ## 出站 WebHook
 
-项目的 `default_outbound_webhook_url` 可作为出站 WebHook stage 的默认 URL。`outbound_webhook` stage 支持 `dingtalk_text`、`wecom_text`、`feishu_text` 和 `generic_json` 模板。
+出站 WebHook 通过 `outbound_webhook` stage 配置，URL 写在 stage 的 `config.url` 中。支持 `dingtalk_text`、`wecom_text`、`feishu_text` 和 `generic_json` 模板。
 
 出站 WebHook 失败会记录到部署日志和后端日志；用于告警时建议设置 `continue_on_error=true`。
 
@@ -319,7 +318,7 @@ Authorization: Bearer TOKEN
 - 删除项目只删除数据库元数据，不删除服务器文件
 - MCP 触发部署和回滚默认关闭
 - 部署命令有超时控制
-- 后端日志不要打印完整 token、secret、default_outbound_webhook_url
+- 后端日志不要打印完整 token、secret 或出站 WebHook URL
 
 ## 常见问题
 

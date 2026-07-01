@@ -54,6 +54,13 @@ func TestExecuteDeployKeepsSuccessAfterNotifyStage(t *testing.T) {
 }
 
 func TestExecuteRollbackKeepsRollbackedAfterNotifyStage(t *testing.T) {
+	var webhookCalls int32
+	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&webhookCalls, 1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer webhookServer.Close()
+
 	svc := newTestService(t)
 	project := model.Project{
 		Name:        "app",
@@ -64,6 +71,9 @@ func TestExecuteRollbackKeepsRollbackedAfterNotifyStage(t *testing.T) {
 		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		RollbackCmd: "true",
+		Stages: []model.ProjectStage{
+			outboundWebhookStage("outbound_webhook", webhookServer.URL, model.ProjectStageRunWhenAlways),
+		},
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
 		t.Fatal(err)
@@ -81,6 +91,9 @@ func TestExecuteRollbackKeepsRollbackedAfterNotifyStage(t *testing.T) {
 	}
 	if got.Status != model.TaskRollbacked {
 		t.Fatalf("expected rollbacked, got %s", got.Status)
+	}
+	if calls := atomic.LoadInt32(&webhookCalls); calls != 1 {
+		t.Fatalf("expected rollback outbound webhook to be called once, got %d", calls)
 	}
 }
 

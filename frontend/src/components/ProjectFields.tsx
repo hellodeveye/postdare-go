@@ -53,9 +53,6 @@ export function ProjectFields({ value, onChange }: Props) {
       <Field label="Webhook secret">
         <Input value={value.webhook_secret ?? ""} onChange={(e) => set("webhook_secret", e.target.value)} />
       </Field>
-      <Field label="Default outbound webhook">
-        <Input value={value.default_outbound_webhook_url ?? ""} onChange={(e) => set("default_outbound_webhook_url", e.target.value)} />
-      </Field>
       <div className="lg:col-span-2">
         <StageEditor stages={value.deploy_stages ?? []} onChange={(next) => set("deploy_stages", next)} />
       </div>

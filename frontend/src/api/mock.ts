@@ -17,14 +17,20 @@ export const mockProjects: Project[] = [
       { name: "build", type: "command", config: { command: "cd /data/repos/my-app && mvn package -DskipTests" }, enabled: true },
       { name: "deploy", type: "command", config: { command: "bash /data/apps/my-app/deploy.sh" }, enabled: true },
       { name: "health_check", type: "health_check", config: { url: "http://127.0.0.1:8080/actuator/health" }, enabled: true },
-      { name: "outbound_webhook", type: "outbound_webhook", run_when: "always", continue_on_error: true, config: { template: "feishu_text" }, enabled: true }
+      {
+        name: "outbound_webhook",
+        type: "outbound_webhook",
+        run_when: "always",
+        continue_on_error: true,
+        config: { url: "https://hooks.example.com/notify", template: "feishu_text" },
+        enabled: true
+      }
     ],
     rollback_cmd: "bash /data/apps/my-app/rollback.sh",
     health_url: "http://127.0.0.1:8080/actuator/health",
     app_log_path: "/data/apps/my-app/logs/app.log",
     systemd_service: "my-app",
     webhook_secret: "******",
-    default_outbound_webhook_url: "https://hooks.example.com/******",
     auto_deploy_enabled: true,
     created_at: new Date(Date.now() - 86400000).toISOString(),
     updated_at: new Date().toISOString()

@@ -195,7 +195,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		"name": true, "project_key": true, "git_provider": true, "repo_url": true, "branch": true,
 		"repo_dir": true, "app_dir": true, "rollback_cmd": true, "deploy_stages": true,
 		"health_url": true, "app_log_path": true, "systemd_service": true, "webhook_secret": true,
-		"default_outbound_webhook_url": true, "auto_deploy_enabled": true,
+		"auto_deploy_enabled": true,
 	}
 	updates := map[string]interface{}{}
 	stagesChanged := false
@@ -203,7 +203,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		if !allowed[key] {
 			continue
 		}
-		if (key == "webhook_secret" || key == "default_outbound_webhook_url") && isMaskedValue(value) {
+		if key == "webhook_secret" && isMaskedValue(value) {
 			continue
 		}
 		if err := applyProjectUpdate(&project, key, value); err != nil {
@@ -782,6 +782,9 @@ func validateProjectStages(stages []model.ProjectStage) error {
 			if err := parseStageConfig(st, &cfg); err != nil {
 				return fmt.Errorf("deploy_stages[%d].config is invalid: %v", i, err)
 			}
+			if st.Enabled && strings.TrimSpace(cfg.URL) == "" {
+				return fmt.Errorf("deploy_stages[%d].config.url is required", i)
+			}
 			if cfg.Template != "" && cfg.Template != "dingtalk_text" && cfg.Template != "wecom_text" && cfg.Template != "feishu_text" && cfg.Template != "generic_json" {
 				return fmt.Errorf("deploy_stages[%d].config.template is unsupported", i)
 			}
@@ -808,6 +811,9 @@ func applyProjectUpdate(project *model.Project, key string, value interface{}) e
 	if key == "deploy_stages" {
 		stages, err := parseProjectStages(value)
 		if err != nil {
+			return err
+		}
+		if err := preserveMaskedOutboundWebhookURLs(project.Stages, stages); err != nil {
 			return err
 		}
 		project.Stages = stages
@@ -848,8 +854,6 @@ func applyProjectUpdate(project *model.Project, key string, value interface{}) e
 		project.SystemdService = stringValue
 	case "webhook_secret":
 		project.WebhookSecret = stringValue
-	case "default_outbound_webhook_url":
-		project.DefaultOutboundWebhookURL = stringValue
 	case "auto_deploy_enabled":
 		v, ok := value.(bool)
 		if !ok {
@@ -888,8 +892,6 @@ func projectUpdateValue(project model.Project, key string) interface{} {
 		return project.SystemdService
 	case "webhook_secret":
 		return project.WebhookSecret
-	case "default_outbound_webhook_url":
-		return project.DefaultOutboundWebhookURL
 	case "auto_deploy_enabled":
 		return project.AutoDeployEnabled
 	default:
@@ -916,8 +918,84 @@ func maskProjects(projects []model.Project) []model.Project {
 
 func maskProject(project model.Project) model.Project {
 	project.WebhookSecret = util.MaskSecret(project.WebhookSecret)
-	project.DefaultOutboundWebhookURL = util.MaskSecret(project.DefaultOutboundWebhookURL)
+	for i, stage := range project.Stages {
+		if stage.Type != model.ProjectStageTypeOutboundWebhook {
+			continue
+		}
+		var cfg model.OutboundWebhookStageConfig
+		if err := parseStageConfig(stage, &cfg); err != nil {
+			continue
+		}
+		if strings.TrimSpace(cfg.URL) == "" {
+			continue
+		}
+		cfg.URL = util.MaskSecret(cfg.URL)
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			continue
+		}
+		project.Stages[i].Config = raw
+	}
 	return project
+}
+
+func preserveMaskedOutboundWebhookURLs(existing []model.ProjectStage, next []model.ProjectStage) error {
+	used := map[int]bool{}
+	for i := range next {
+		if next[i].Type != model.ProjectStageTypeOutboundWebhook {
+			continue
+		}
+		var cfg model.OutboundWebhookStageConfig
+		if err := parseStageConfig(next[i], &cfg); err != nil {
+			return fmt.Errorf("deploy_stages[%d].config is invalid: %v", i, err)
+		}
+		if !strings.Contains(cfg.URL, "******") {
+			continue
+		}
+		oldCfg, ok := findExistingOutboundWebhookConfig(existing, next[i], i, used)
+		if !ok || strings.TrimSpace(oldCfg.URL) == "" {
+			continue
+		}
+		cfg.URL = oldCfg.URL
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return fmt.Errorf("deploy_stages[%d].config is invalid: %v", i, err)
+		}
+		next[i].Config = raw
+	}
+	return nil
+}
+
+func findExistingOutboundWebhookConfig(stages []model.ProjectStage, target model.ProjectStage, index int, used map[int]bool) (model.OutboundWebhookStageConfig, bool) {
+	for i, stage := range stages {
+		if used[i] || stage.Type != model.ProjectStageTypeOutboundWebhook || stage.Name != target.Name {
+			continue
+		}
+		cfg, ok := outboundWebhookConfig(stage)
+		if ok {
+			used[i] = true
+			return cfg, true
+		}
+	}
+	if index >= 0 && index < len(stages) && !used[index] {
+		stage := stages[index]
+		if stage.Type == model.ProjectStageTypeOutboundWebhook {
+			cfg, ok := outboundWebhookConfig(stage)
+			if ok {
+				used[index] = true
+				return cfg, true
+			}
+		}
+	}
+	return model.OutboundWebhookStageConfig{}, false
+}
+
+func outboundWebhookConfig(stage model.ProjectStage) (model.OutboundWebhookStageConfig, bool) {
+	var cfg model.OutboundWebhookStageConfig
+	if err := parseStageConfig(stage, &cfg); err != nil {
+		return cfg, false
+	}
+	return cfg, true
 }
 
 func maskTasks(tasks []model.DeployTask) []model.DeployTask {

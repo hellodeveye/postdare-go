@@ -52,7 +52,6 @@ export interface Project {
   app_log_path?: string;
   systemd_service?: string;
   webhook_secret?: string;
-  default_outbound_webhook_url?: string;
   auto_deploy_enabled: boolean;
   created_at?: string;
   updated_at?: string;

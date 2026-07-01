@@ -3,22 +3,6 @@ USE postdare_go;
 SET @schema_name = DATABASE();
 SET SESSION group_concat_max_len = 1048576;
 
-SET @has_default_outbound_webhook_url = (
-  SELECT COUNT(*)
-  FROM information_schema.columns
-  WHERE table_schema = @schema_name
-    AND table_name = 'projects'
-    AND column_name = 'default_outbound_webhook_url'
-);
-SET @sql = IF(
-  @has_default_outbound_webhook_url = 0,
-  'ALTER TABLE projects ADD COLUMN default_outbound_webhook_url VARCHAR(1000) AFTER webhook_secret',
-  'SELECT 1'
-);
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
 SET @has_notify_webhook = (
   SELECT COUNT(*)
   FROM information_schema.columns
@@ -26,14 +10,6 @@ SET @has_notify_webhook = (
     AND table_name = 'projects'
     AND column_name = 'notify_webhook'
 );
-SET @sql = IF(
-  @has_notify_webhook > 0,
-  'UPDATE projects SET default_outbound_webhook_url = notify_webhook WHERE (default_outbound_webhook_url IS NULL OR default_outbound_webhook_url = '''') AND notify_webhook IS NOT NULL',
-  'SELECT 1'
-);
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
 
 UPDATE projects p
 JOIN (
@@ -96,15 +72,29 @@ WHERE health_url IS NOT NULL
   AND health_url <> ''
   AND JSON_SEARCH(deploy_stages, 'one', 'health_check', NULL, '$[*].type') IS NULL;
 
-UPDATE projects
-SET deploy_stages = JSON_ARRAY_APPEND(
-  deploy_stages,
-  '$',
-  JSON_EXTRACT('{"name":"outbound_webhook","type":"outbound_webhook","enabled":true,"run_when":"always","continue_on_error":true,"config":{"template":"dingtalk_text"}}', '$')
-)
-WHERE default_outbound_webhook_url IS NOT NULL
-  AND default_outbound_webhook_url <> ''
-  AND JSON_SEARCH(deploy_stages, 'one', 'outbound_webhook', NULL, '$[*].type') IS NULL;
+SET @sql = IF(
+  @has_notify_webhook > 0,
+  'UPDATE projects
+   SET deploy_stages = JSON_ARRAY_APPEND(
+     deploy_stages,
+     ''$'',
+     JSON_EXTRACT(
+       CONCAT(
+         ''{"name":"outbound_webhook","type":"outbound_webhook","enabled":true,"run_when":"always","continue_on_error":true,"config":{"url":'',
+         JSON_QUOTE(notify_webhook),
+         '',"template":"dingtalk_text"}}''
+       ),
+       ''$''
+     )
+   )
+   WHERE notify_webhook IS NOT NULL
+     AND notify_webhook <> ''''
+     AND JSON_SEARCH(deploy_stages, ''one'', ''outbound_webhook'', NULL, ''$[*].type'') IS NULL',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql = IF(@has_notify_webhook > 0, 'ALTER TABLE projects DROP COLUMN notify_webhook', 'SELECT 1');
 PREPARE stmt FROM @sql;

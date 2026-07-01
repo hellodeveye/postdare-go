@@ -62,8 +62,5 @@ function stripMaskedSecrets(project: Partial<Project>) {
   if (typeof payload.webhook_secret === "string" && payload.webhook_secret.includes("******")) {
     delete payload.webhook_secret;
   }
-  if (typeof payload.default_outbound_webhook_url === "string" && payload.default_outbound_webhook_url.includes("******")) {
-    delete payload.default_outbound_webhook_url;
-  }
   return payload;
 }
