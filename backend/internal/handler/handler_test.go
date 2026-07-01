@@ -221,6 +221,36 @@ func TestUpdateProjectRejectsEnabledOutboundWebhookWithoutURL(t *testing.T) {
 	}
 }
 
+func TestUpdateProjectRejectsEnabledHealthCheckWithoutURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&model.Project{}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{}
+	svc := service.New(database, cfg, sse.NewHub(), zap.NewNop())
+	h := &Handler{DB: database, Config: cfg, Service: svc, Hub: sse.NewHub()}
+	router := gin.New()
+	router.PATCH("/projects/:project_id", h.UpdateProject)
+
+	project := model.Project{Name: "app", ProjectKey: "app", GitProvider: model.GitProviderGitHub, RepoURL: "git@example.com:app.git", Branch: "main", RepoDir: "/data/repo", AppDir: "/data/app"}
+	if err := database.Create(&project).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	body := `{"deploy_stages":[{"name":"health_check","type":"health_check","enabled":true,"config":{}}]}`
+	req := httptest.NewRequest(http.MethodPatch, "/projects/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 for health check without URL, got %d: %s", res.Code, res.Body.String())
+	}
+}
+
 func testStageConfig(value interface{}) json.RawMessage {
 	raw, err := json.Marshal(value)
 	if err != nil {

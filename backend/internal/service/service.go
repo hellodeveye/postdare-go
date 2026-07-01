@@ -250,12 +250,6 @@ func (s *Service) executeRollback(ctx context.Context, project model.Project, ta
 		}
 		return
 	}
-	if !s.executeHealthCheckStage(ctx, task, project.HealthURL) {
-		if task.Status != model.TaskCanceled {
-			s.executeDeferredStages(context.Background(), project, task)
-		}
-		return
-	}
 	s.finishTask(ctx, task, model.TaskRollbacked, "")
 	s.executeDeferredStages(context.Background(), project, task)
 }
@@ -377,11 +371,7 @@ func (s *Service) runProjectStage(ctx context.Context, project model.Project, ta
 		if err != nil {
 			return stageFailed, err
 		}
-		healthURL := strings.TrimSpace(cfg.URL)
-		if healthURL == "" {
-			healthURL = project.HealthURL
-		}
-		return s.runHealthCheckStage(ctx, task, stage.Name, healthURL)
+		return s.runHealthCheckStage(ctx, task, stage.Name, strings.TrimSpace(cfg.URL))
 	case model.ProjectStageTypeOutboundWebhook:
 		cfg, err := outboundWebhookStageConfig(stage)
 		if err != nil {
@@ -427,19 +417,6 @@ func decodeStageConfig(stage model.ProjectStage, out interface{}) error {
 	return nil
 }
 
-func (s *Service) executeHealthCheckStage(ctx context.Context, task *model.DeployTask, healthURL string) bool {
-	switch outcome, err := s.runHealthCheckStage(ctx, task, "health_check", healthURL); outcome {
-	case stageOK:
-		return true
-	case stageCanceled:
-		s.finishTask(context.Background(), task, model.TaskCanceled, "canceled by user")
-		return false
-	default:
-		s.failTask(ctx, task, "health_check", err)
-		return false
-	}
-}
-
 func (s *Service) runHealthCheckStage(ctx context.Context, task *model.DeployTask, name string, healthURL string) (stageOutcome, error) {
 	if s.isCanceled(ctx, task.ID) {
 		return stageCanceled, nil
@@ -450,7 +427,7 @@ func (s *Service) runHealthCheckStage(ctx context.Context, task *model.DeployTas
 		stage.Status = model.StageSkipped
 		stage.FinishedAt = &now
 		_ = s.DB.WithContext(ctx).Save(&stage).Error
-		runner.AppendLog(task.LogFile, s.Hub, task.ID, name, "stage skipped: empty health_url")
+		runner.AppendLog(task.LogFile, s.Hub, task.ID, name, "stage skipped: empty health check url")
 		return stageOK, nil
 	}
 	if s.markHealthCheckCanceled(ctx, task, &stage) {

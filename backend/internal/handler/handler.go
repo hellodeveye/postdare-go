@@ -194,7 +194,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 	allowed := map[string]bool{
 		"name": true, "project_key": true, "git_provider": true, "repo_url": true, "branch": true,
 		"repo_dir": true, "app_dir": true, "rollback_cmd": true, "deploy_stages": true,
-		"health_url": true, "app_log_path": true, "systemd_service": true, "webhook_secret": true,
+		"app_log_path": true, "systemd_service": true, "webhook_secret": true,
 		"auto_deploy_enabled": true,
 	}
 	updates := map[string]interface{}{}
@@ -777,6 +777,9 @@ func validateProjectStages(stages []model.ProjectStage) error {
 			if err := parseStageConfig(st, &cfg); err != nil {
 				return fmt.Errorf("deploy_stages[%d].config is invalid: %v", i, err)
 			}
+			if st.Enabled && strings.TrimSpace(cfg.URL) == "" {
+				return fmt.Errorf("deploy_stages[%d].config.url is required", i)
+			}
 		case model.ProjectStageTypeOutboundWebhook:
 			var cfg model.OutboundWebhookStageConfig
 			if err := parseStageConfig(st, &cfg); err != nil {
@@ -846,8 +849,6 @@ func applyProjectUpdate(project *model.Project, key string, value interface{}) e
 		project.AppDir = stringValue
 	case "rollback_cmd":
 		project.RollbackCmd = stringValue
-	case "health_url":
-		project.HealthURL = stringValue
 	case "app_log_path":
 		project.AppLogPath = stringValue
 	case "systemd_service":
@@ -884,8 +885,6 @@ func projectUpdateValue(project model.Project, key string) interface{} {
 		return project.RollbackCmd
 	case "deploy_stages":
 		return project.Stages
-	case "health_url":
-		return project.HealthURL
 	case "app_log_path":
 		return project.AppLogPath
 	case "systemd_service":

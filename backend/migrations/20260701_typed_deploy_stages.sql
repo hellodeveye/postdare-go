@@ -11,6 +11,14 @@ SET @has_notify_webhook = (
     AND column_name = 'notify_webhook'
 );
 
+SET @has_health_url = (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = @schema_name
+    AND table_name = 'projects'
+    AND column_name = 'health_url'
+);
+
 UPDATE projects p
 JOIN (
   SELECT
@@ -55,22 +63,29 @@ UPDATE projects
 SET deploy_stages = JSON_ARRAY()
 WHERE deploy_stages IS NULL;
 
-UPDATE projects
-SET deploy_stages = JSON_ARRAY_APPEND(
-  deploy_stages,
-  '$',
-  JSON_EXTRACT(
-    CONCAT(
-      '{"name":"health_check","type":"health_check","enabled":true,"config":{"url":',
-      JSON_QUOTE(health_url),
-      '}}'
-    ),
-    '$'
-  )
-)
-WHERE health_url IS NOT NULL
-  AND health_url <> ''
-  AND JSON_SEARCH(deploy_stages, 'one', 'health_check', NULL, '$[*].type') IS NULL;
+SET @sql = IF(
+  @has_health_url > 0,
+  'UPDATE projects
+   SET deploy_stages = JSON_ARRAY_APPEND(
+     deploy_stages,
+     ''$'',
+     JSON_EXTRACT(
+       CONCAT(
+         ''{"name":"health_check","type":"health_check","enabled":true,"config":{"url":'',
+         JSON_QUOTE(health_url),
+         ''}}''
+       ),
+       ''$''
+     )
+   )
+   WHERE health_url IS NOT NULL
+     AND health_url <> ''''
+     AND JSON_SEARCH(deploy_stages, ''one'', ''health_check'', NULL, ''$[*].type'') IS NULL',
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 SET @sql = IF(
   @has_notify_webhook > 0,

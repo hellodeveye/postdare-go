@@ -26,6 +26,8 @@ export function ProjectDetailPage() {
   const deploy = useMutation({ mutationFn: () => triggerDeploy(id!, token), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-tasks", id] }) });
   const rollback = useMutation({ mutationFn: () => triggerRollback(id!, token), onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-tasks", id] }) });
   const data = project.data?.data;
+  const healthCheckStage = data?.deploy_stages?.find((stage) => stage.type === "health_check");
+  const healthCheckURL = healthCheckStage?.type === "health_check" ? healthCheckStage.config?.url : undefined;
 
   return (
     <>
@@ -58,7 +60,7 @@ export function ProjectDetailPage() {
               <Info label="Project key" value={data?.project_key} />
               <Info label="Repo directory" value={data?.repo_dir} />
               <Info label="App directory" value={data?.app_dir} />
-              <Info label="Health URL" value={data?.health_url} />
+              <Info label="Health check" value={healthCheckURL} />
               <Info label="App log" value={data?.app_log_path} />
               <Info label="Systemd" value={data?.systemd_service} />
               <Info label="Auto deploy" value={data?.auto_deploy_enabled ? "enabled" : "disabled"} />

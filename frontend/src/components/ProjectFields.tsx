@@ -4,6 +4,19 @@ import type { OutboundWebhookTemplate, Project, ProjectStage, ProjectStageRunWhe
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 
+const defaultMessageTemplate = `Postdare Go {{ .Scene }}
+项目: {{ .Project.Name }}
+Git: {{ .Task.GitProvider }}
+触发: {{ .Task.TriggerType }}
+分支: {{ .Task.Branch }}
+commit: {{ .Task.CommitID }}
+消息: {{ .Task.CommitMessage }}
+阶段: {{ .Task.CurrentStage }}
+状态: {{ .Task.Status }}
+失败原因: {{ .Task.FailReason }}
+任务ID: {{ .Task.ID }}
+耗时: {{ .Duration }}`;
+
 type Props = {
   value: Partial<Project>;
   onChange: (value: Partial<Project>) => void;
@@ -43,9 +56,6 @@ export function ProjectFields({ value, onChange }: Props) {
       </Field>
       <Field label="App directory">
         <Input value={value.app_dir ?? ""} onChange={(e) => set("app_dir", e.target.value)} />
-      </Field>
-      <Field label="Health URL">
-        <Input value={value.health_url ?? ""} onChange={(e) => set("health_url", e.target.value)} />
       </Field>
       <Field label="App log path">
         <Input value={value.app_log_path ?? ""} onChange={(e) => set("app_log_path", e.target.value)} />
@@ -177,10 +187,16 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                         <option value="generic_json">Generic JSON</option>
                       </select>
                       <Textarea
-                        placeholder="Message template"
+                        placeholder="留空则使用系统默认消息模板"
                         value={stage.config?.message_template ?? ""}
                         onChange={(e) => updateConfig(index, { message_template: e.target.value })}
                       />
+                      <div className="rounded-md border border-border bg-surface-2/40 p-3">
+                        <div className="mb-2 text-xs font-medium text-muted">Default message template</div>
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs leading-relaxed text-muted">
+                          {defaultMessageTemplate}
+                        </pre>
+                      </div>
                     </div>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-4 text-xs text-ink">

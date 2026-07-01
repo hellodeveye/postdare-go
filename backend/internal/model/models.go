@@ -58,7 +58,6 @@ type Project struct {
 	AppDir            string         `gorm:"size:500;not null" json:"app_dir"`
 	RollbackCmd       string         `gorm:"type:text" json:"rollback_cmd"`
 	Stages            []ProjectStage `gorm:"column:deploy_stages;serializer:json;type:json" json:"deploy_stages"`
-	HealthURL         string         `gorm:"size:500" json:"health_url"`
 	AppLogPath        string         `gorm:"size:500" json:"app_log_path"`
 	SystemdService    string         `gorm:"size:100" json:"systemd_service"`
 	WebhookSecret     string         `gorm:"size:255" json:"webhook_secret,omitempty"`

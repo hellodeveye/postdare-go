@@ -37,7 +37,7 @@ func AnalyzeFailureLog(failedStage string, logText string) FailureAnalysis {
 	case strings.Contains(lower, "address already in use") || strings.Contains(lower, "port already in use"):
 		add("应用启动失败，端口已被占用。", "port already in use", "定位占用端口的进程，调整服务端口或停止旧进程。")
 	case strings.Contains(lower, "health check failed"):
-		add("部署后健康检查失败。", "health check failed", "检查应用日志、健康检查 URL、启动耗时和依赖服务状态。")
+		add("部署后健康检查失败。", "health check failed", "检查应用日志、health_check stage URL、启动耗时和依赖服务状态。")
 	case strings.Contains(lower, "authentication failed") || strings.Contains(lower, "permission denied (publickey)"):
 		add("Git 拉取阶段认证失败。", "git authentication failed", "检查部署服务器 SSH key、仓库权限和 known_hosts。")
 	case strings.Contains(lower, "command timeout") || strings.Contains(lower, "deadline exceeded"):

@@ -52,6 +52,7 @@ postdare-go
 ├── backend
 │   ├── cmd/server
 │   ├── cmd/mcp-server
+│   ├── cmd/migrate
 │   ├── internal
 │   ├── migrations
 │   ├── config.yaml
@@ -77,7 +78,18 @@ database:
   dsn: "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local"
 ```
 
-已有数据库升级时，按文件名顺序执行 `backend/migrations` 下除 `init.sql` 以外的迁移脚本。
+已有数据库升级时，使用正式迁移命令执行 `backend/migrations` 下除 `init.sql` 以外的迁移脚本：
+
+```bash
+cd backend
+go run ./cmd/migrate
+```
+
+如迁移目录不在默认位置，可传入 `--dir`：
+
+```bash
+go run ./cmd/migrate --dir ./migrations
+```
 
 ## 后端启动
 
@@ -138,7 +150,6 @@ password: admin123456
 - 应用部署目录：例如 `/data/apps/my-app`
 - 部署阶段列表：例如 `pull_code`、`unit_test`、`build`、`deploy`、`health_check`、`outbound_webhook`
 - 回滚命令
-- 健康检查 URL
 - 应用日志路径
 - Webhook secret
 
@@ -161,7 +172,6 @@ Git 平台：github
   6. health_check：http://127.0.0.1:8080/actuator/health
   7. outbound_webhook：always，https://open.feishu.cn/open-apis/bot/v2/hook/xxx，feishu_text
 回滚命令：bash /data/apps/my-app/rollback.sh
-健康检查 URL：http://127.0.0.1:8080/actuator/health
 应用日志路径：/data/apps/my-app/logs/app.log
 systemd 服务名：my-app
 自动部署：开启

@@ -27,7 +27,6 @@ export const mockProjects: Project[] = [
       }
     ],
     rollback_cmd: "bash /data/apps/my-app/rollback.sh",
-    health_url: "http://127.0.0.1:8080/actuator/health",
     app_log_path: "/data/apps/my-app/logs/app.log",
     systemd_service: "my-app",
     webhook_secret: "******",

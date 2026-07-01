@@ -21,7 +21,6 @@ CREATE TABLE IF NOT EXISTS projects (
   app_dir VARCHAR(500) NOT NULL,
   rollback_cmd TEXT,
   deploy_stages JSON,
-  health_url VARCHAR(500),
   app_log_path VARCHAR(500),
   systemd_service VARCHAR(100),
   webhook_secret VARCHAR(255),
@@ -106,6 +105,13 @@ CREATE TABLE IF NOT EXISTS settings (
   `value` TEXT,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  filename VARCHAR(255) NOT NULL UNIQUE,
+  checksum VARCHAR(64) NOT NULL,
+  executed_at DATETIME NOT NULL
 );
 
 INSERT INTO users (username, password_hash, role, created_at, updated_at)

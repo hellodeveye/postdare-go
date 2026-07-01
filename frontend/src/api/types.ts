@@ -48,7 +48,6 @@ export interface Project {
   app_dir: string;
   rollback_cmd?: string;
   deploy_stages?: ProjectStage[];
-  health_url?: string;
   app_log_path?: string;
   systemd_service?: string;
   webhook_secret?: string;
