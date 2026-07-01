@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -45,7 +46,7 @@ func TestUpdateProjectPersistsDeployStages(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	body := `{"deploy_stages":[{"name":"build","command":"make","enabled":true},{"name":"ship","command":"./deploy.sh","enabled":true,"continue_on_error":true}]}`
+	body := `{"deploy_stages":[{"name":"build","type":"command","enabled":true,"config":{"command":"make"}},{"name":"ship","type":"command","enabled":true,"continue_on_error":true,"config":{"command":"./deploy.sh"}}]}`
 	req := httptest.NewRequest(http.MethodPatch, "/projects/1", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
@@ -61,7 +62,11 @@ func TestUpdateProjectPersistsDeployStages(t *testing.T) {
 	if len(reloaded.Stages) != 2 {
 		t.Fatalf("expected 2 stages persisted, got %d (%+v)", len(reloaded.Stages), reloaded.Stages)
 	}
-	if reloaded.Stages[0].Name != "build" || reloaded.Stages[0].Command != "make" || !reloaded.Stages[0].Enabled {
+	var buildConfig model.CommandStageConfig
+	if err := json.Unmarshal(reloaded.Stages[0].Config, &buildConfig); err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.Stages[0].Name != "build" || reloaded.Stages[0].Type != model.ProjectStageTypeCommand || buildConfig.Command != "make" || !reloaded.Stages[0].Enabled {
 		t.Fatalf("unexpected first stage: %+v", reloaded.Stages[0])
 	}
 	if reloaded.Stages[1].Name != "ship" || !reloaded.Stages[1].ContinueOnError {
@@ -105,7 +110,7 @@ func TestUpdateProjectRejectsStageWithoutName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest(http.MethodPatch, "/projects/1", strings.NewReader(`{"deploy_stages":[{"name":"","command":"make","enabled":true}]}`))
+	req := httptest.NewRequest(http.MethodPatch, "/projects/1", strings.NewReader(`{"deploy_stages":[{"name":"","type":"command","enabled":true,"config":{"command":"make"}}]}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
 	router.ServeHTTP(res, req)

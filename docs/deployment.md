@@ -21,14 +21,15 @@ sudo systemctl enable --now postdare-go
 
 ## Deploy Stages
 
-Each project defines an ordered list of deploy stages (`deploy_stages`). A stage is a
-named shell command that runs in list order:
+Each project defines an ordered list of typed deploy stages (`deploy_stages`). Supported
+stage types are `command`, `health_check`, and `outbound_webhook`.
 
 - `enabled: false` skips the stage.
 - `continue_on_error: true` records the stage as failed but keeps the pipeline running.
+- `run_when: success|failed|always` runs a stage after the main flow reaches a final status.
 
-After all stages complete, the fixed `health_check` (driven by `health_url`) and `notify`
-steps run as before. Rollback stays separate and uses `rollback_cmd`.
+`health_check` and outbound WebHook calls are regular stages, so their order is controlled
+by the project configuration. Rollback stays separate and uses `rollback_cmd`.
 
 Project commands should be explicit and absolute, for example:
 

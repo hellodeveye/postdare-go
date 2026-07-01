@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -218,10 +219,10 @@ func (s *Service) ExecuteTask(ctx context.Context, taskID uint64) {
 
 func (s *Service) executeDeploy(ctx context.Context, project model.Project, task *model.DeployTask) {
 	for _, stage := range DeployStages(project) {
-		if !stage.Enabled {
+		if !shouldRunInMainFlow(stage) {
 			continue
 		}
-		outcome, err := s.runStage(ctx, task, stage.Name, stage.Command)
+		outcome, err := s.runProjectStage(ctx, project, task, stage)
 		switch outcome {
 		case stageOK:
 			continue
@@ -234,35 +235,29 @@ func (s *Service) executeDeploy(ctx context.Context, project model.Project, task
 				continue
 			}
 			s.failTask(ctx, task, stage.Name, err)
-			s.notify(ctx, project, *task, "部署失败")
+			s.executeDeferredStages(context.Background(), project, task)
 			return
 		}
 	}
-	if !s.executeHealthCheckStage(ctx, task, project.HealthURL) {
-		if task.Status != model.TaskCanceled {
-			s.notify(ctx, project, *task, "健康检查失败")
-		}
-		return
-	}
-	s.executeNotifyStage(ctx, project, *task, "部署成功")
 	s.finishTask(ctx, task, model.TaskSuccess, "")
+	s.executeDeferredStages(context.Background(), project, task)
 }
 
 func (s *Service) executeRollback(ctx context.Context, project model.Project, task *model.DeployTask) {
 	if !s.executeCommandStage(ctx, task, "rollback", project.RollbackCmd) {
 		if task.Status != model.TaskCanceled {
-			s.notify(ctx, project, *task, "回滚失败")
+			s.sendDefaultOutboundWebhook(ctx, project, *task)
 		}
 		return
 	}
 	if !s.executeHealthCheckStage(ctx, task, project.HealthURL) {
 		if task.Status != model.TaskCanceled {
-			s.notify(ctx, project, *task, "健康检查失败")
+			s.sendDefaultOutboundWebhook(ctx, project, *task)
 		}
 		return
 	}
-	s.executeNotifyStage(ctx, project, *task, "回滚成功")
 	s.finishTask(ctx, task, model.TaskRollbacked, "")
+	s.sendDefaultOutboundWebhook(ctx, project, *task)
 }
 
 // stageOutcome is the result of running a single command stage without any
@@ -276,10 +271,10 @@ const (
 	stageCanceled
 )
 
-// runStage executes one shell-command stage and records its DeployTaskStage row.
+// runCommandStage executes one shell-command stage and records its DeployTaskStage row.
 // It never mutates task-level status; on failure it returns the underlying error
 // so the caller can surface it via failTask when appropriate.
-func (s *Service) runStage(ctx context.Context, task *model.DeployTask, name string, command string) (stageOutcome, error) {
+func (s *Service) runCommandStage(ctx context.Context, task *model.DeployTask, name string, command string) (stageOutcome, error) {
 	if s.isCanceled(ctx, task.ID) {
 		return stageCanceled, nil
 	}
@@ -317,7 +312,7 @@ func (s *Service) runStage(ctx context.Context, task *model.DeployTask, name str
 // executeCommandStage runs a stage and applies the default "fail the whole task on
 // error" behavior. Used by the rollback path, which has no per-stage error policy.
 func (s *Service) executeCommandStage(ctx context.Context, task *model.DeployTask, name string, command string) bool {
-	switch outcome, err := s.runStage(ctx, task, name, command); outcome {
+	switch outcome, err := s.runCommandStage(ctx, task, name, command); outcome {
 	case stageOK:
 		return true
 	case stageCanceled:
@@ -329,29 +324,143 @@ func (s *Service) executeCommandStage(ctx context.Context, task *model.DeployTas
 	}
 }
 
-// DeployStages returns the ordered command stages configured for a deploy.
+// DeployStages returns the ordered stages configured for a deploy.
 func DeployStages(project model.Project) []model.ProjectStage {
 	return project.Stages
 }
 
+func shouldRunInMainFlow(stage model.ProjectStage) bool {
+	return stage.Enabled && strings.TrimSpace(stage.RunWhen) == ""
+}
+
+func shouldRunDeferred(stage model.ProjectStage, terminalStatus string) bool {
+	if !stage.Enabled {
+		return false
+	}
+	switch stage.RunWhen {
+	case model.ProjectStageRunWhenAlways:
+		return true
+	case model.ProjectStageRunWhenSuccess:
+		return terminalStatus == model.TaskSuccess || terminalStatus == model.TaskRollbacked
+	case model.ProjectStageRunWhenFailed:
+		return terminalStatus == model.TaskFailed
+	default:
+		return false
+	}
+}
+
+func (s *Service) executeDeferredStages(ctx context.Context, project model.Project, task *model.DeployTask) {
+	for _, stage := range DeployStages(project) {
+		if !shouldRunDeferred(stage, task.Status) {
+			continue
+		}
+		outcome, err := s.runProjectStage(ctx, project, task, stage)
+		if outcome == stageCanceled {
+			return
+		}
+		if err != nil {
+			runner.AppendLog(task.LogFile, s.Hub, task.ID, stage.Name, fmt.Sprintf("deferred stage failed: %v", err))
+		}
+	}
+}
+
+func (s *Service) runProjectStage(ctx context.Context, project model.Project, task *model.DeployTask, stage model.ProjectStage) (stageOutcome, error) {
+	switch stage.Type {
+	case model.ProjectStageTypeCommand:
+		cfg, err := commandStageConfig(stage)
+		if err != nil {
+			return stageFailed, err
+		}
+		return s.runCommandStage(ctx, task, stage.Name, cfg.Command)
+	case model.ProjectStageTypeHealthCheck:
+		cfg, err := healthCheckStageConfig(stage)
+		if err != nil {
+			return stageFailed, err
+		}
+		healthURL := strings.TrimSpace(cfg.URL)
+		if healthURL == "" {
+			healthURL = project.HealthURL
+		}
+		return s.runHealthCheckStage(ctx, task, stage.Name, healthURL)
+	case model.ProjectStageTypeOutboundWebhook:
+		cfg, err := outboundWebhookStageConfig(stage)
+		if err != nil {
+			return stageFailed, err
+		}
+		return s.runOutboundWebhookStage(ctx, project, task, stage.Name, cfg)
+	default:
+		return stageFailed, fmt.Errorf("unsupported stage type %q", stage.Type)
+	}
+}
+
+func commandStageConfig(stage model.ProjectStage) (model.CommandStageConfig, error) {
+	var cfg model.CommandStageConfig
+	if err := decodeStageConfig(stage, &cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func healthCheckStageConfig(stage model.ProjectStage) (model.HealthCheckStageConfig, error) {
+	var cfg model.HealthCheckStageConfig
+	if err := decodeStageConfig(stage, &cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func outboundWebhookStageConfig(stage model.ProjectStage) (model.OutboundWebhookStageConfig, error) {
+	var cfg model.OutboundWebhookStageConfig
+	if err := decodeStageConfig(stage, &cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func decodeStageConfig(stage model.ProjectStage, out interface{}) error {
+	if len(stage.Config) == 0 {
+		return nil
+	}
+	if err := json.Unmarshal(stage.Config, out); err != nil {
+		return fmt.Errorf("invalid config for stage %s: %w", stage.Name, err)
+	}
+	return nil
+}
+
 func (s *Service) executeHealthCheckStage(ctx context.Context, task *model.DeployTask, healthURL string) bool {
-	stage := s.startStage(ctx, task, "health_check")
+	switch outcome, err := s.runHealthCheckStage(ctx, task, "health_check", healthURL); outcome {
+	case stageOK:
+		return true
+	case stageCanceled:
+		s.finishTask(context.Background(), task, model.TaskCanceled, "canceled by user")
+		return false
+	default:
+		s.failTask(ctx, task, "health_check", err)
+		return false
+	}
+}
+
+func (s *Service) runHealthCheckStage(ctx context.Context, task *model.DeployTask, name string, healthURL string) (stageOutcome, error) {
+	if s.isCanceled(ctx, task.ID) {
+		return stageCanceled, nil
+	}
+	stage := s.startStage(ctx, task, name)
 	if strings.TrimSpace(healthURL) == "" {
 		now := time.Now()
 		stage.Status = model.StageSkipped
 		stage.FinishedAt = &now
 		_ = s.DB.WithContext(ctx).Save(&stage).Error
-		runner.AppendLog(task.LogFile, s.Hub, task.ID, "health_check", "stage skipped: empty health_url")
-		return true
+		runner.AppendLog(task.LogFile, s.Hub, task.ID, name, "stage skipped: empty health_url")
+		return stageOK, nil
 	}
-	if s.finishHealthCheckIfCanceled(ctx, task, &stage) {
-		return false
+	if s.markHealthCheckCanceled(ctx, task, &stage) {
+		return stageCanceled, nil
 	}
 	client := &http.Client{Timeout: 10 * time.Second}
 	var lastErr error
 	for i := 1; i <= 5; i++ {
-		if s.finishHealthCheckIfCanceled(ctx, task, &stage) {
-			return false
+		if s.markHealthCheckCanceled(ctx, task, &stage) {
+			return stageCanceled, nil
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
 		if err != nil {
@@ -360,8 +469,8 @@ func (s *Service) executeHealthCheckStage(ctx context.Context, task *model.Deplo
 		}
 		resp, err := client.Do(req)
 		if s.healthCheckCanceled(ctx, task.ID, err) {
-			s.finishCanceledHealthCheck(task, &stage)
-			return false
+			s.markCanceledStage(&stage)
+			return stageCanceled, nil
 		}
 		if err == nil && resp != nil {
 			_ = resp.Body.Close()
@@ -372,14 +481,14 @@ func (s *Service) executeHealthCheckStage(ctx context.Context, task *model.Deplo
 				exit := 0
 				stage.ExitCode = &exit
 				_ = s.DB.WithContext(ctx).Save(&stage).Error
-				runner.AppendLog(task.LogFile, s.Hub, task.ID, "health_check", fmt.Sprintf("health check passed on attempt %d", i))
-				return true
+				runner.AppendLog(task.LogFile, s.Hub, task.ID, name, fmt.Sprintf("health check passed on attempt %d", i))
+				return stageOK, nil
 			}
 			lastErr = fmt.Errorf("health check returned status %d", resp.StatusCode)
 		} else if err != nil {
 			lastErr = err
 		}
-		runner.AppendLog(task.LogFile, s.Hub, task.ID, "health_check", fmt.Sprintf("attempt %d failed: %v", i, lastErr))
+		runner.AppendLog(task.LogFile, s.Hub, task.ID, name, fmt.Sprintf("attempt %d failed: %v", i, lastErr))
 		if i < 5 {
 			timer := time.NewTimer(3 * time.Second)
 			select {
@@ -387,8 +496,8 @@ func (s *Service) executeHealthCheckStage(ctx context.Context, task *model.Deplo
 				if !timer.Stop() {
 					<-timer.C
 				}
-				s.finishCanceledHealthCheck(task, &stage)
-				return false
+				s.markCanceledStage(&stage)
+				return stageCanceled, nil
 			case <-timer.C:
 			}
 		}
@@ -400,8 +509,7 @@ func (s *Service) executeHealthCheckStage(ctx context.Context, task *model.Deplo
 	stage.ExitCode = &exit
 	stage.ErrorMessage = fmt.Sprintf("health check failed: %v", lastErr)
 	_ = s.DB.WithContext(ctx).Save(&stage).Error
-	s.failTask(ctx, task, "health_check", fmt.Errorf("health check failed: %w", lastErr))
-	return false
+	return stageFailed, fmt.Errorf("health check failed: %w", lastErr)
 }
 
 func (s *Service) healthCheckCanceled(ctx context.Context, taskID uint64, err error) bool {
@@ -411,15 +519,15 @@ func (s *Service) healthCheckCanceled(ctx context.Context, taskID uint64, err er
 	return s.isCanceled(context.Background(), taskID)
 }
 
-func (s *Service) finishHealthCheckIfCanceled(ctx context.Context, task *model.DeployTask, stage *model.DeployTaskStage) bool {
+func (s *Service) markHealthCheckCanceled(ctx context.Context, task *model.DeployTask, stage *model.DeployTaskStage) bool {
 	if !s.healthCheckCanceled(ctx, task.ID, nil) {
 		return false
 	}
-	s.finishCanceledHealthCheck(task, stage)
+	s.markCanceledStage(stage)
 	return true
 }
 
-func (s *Service) finishCanceledHealthCheck(task *model.DeployTask, stage *model.DeployTaskStage) {
+func (s *Service) markCanceledStage(stage *model.DeployTaskStage) {
 	now := time.Now()
 	exit := 1
 	stage.Status = model.StageFailed
@@ -427,30 +535,50 @@ func (s *Service) finishCanceledHealthCheck(task *model.DeployTask, stage *model
 	stage.ExitCode = &exit
 	stage.ErrorMessage = "canceled by user"
 	_ = s.DB.WithContext(context.Background()).Save(stage).Error
-	s.finishTask(context.Background(), task, model.TaskCanceled, "canceled by user")
 }
 
-func (s *Service) executeNotifyStage(ctx context.Context, project model.Project, task model.DeployTask, scene string) {
-	stage := s.startStage(ctx, &task, "notify")
-	err := s.Notifier.Send(project, task, scene)
+func (s *Service) runOutboundWebhookStage(ctx context.Context, project model.Project, task *model.DeployTask, name string, cfg model.OutboundWebhookStageConfig) (stageOutcome, error) {
+	if s.isCanceled(ctx, task.ID) {
+		return stageCanceled, nil
+	}
+	stage := s.startStage(ctx, task, name)
+	webhookURL := strings.TrimSpace(cfg.URL)
+	if webhookURL == "" {
+		webhookURL = project.DefaultOutboundWebhookURL
+	}
+	if webhookURL == "" {
+		now := time.Now()
+		stage.Status = model.StageSkipped
+		stage.FinishedAt = &now
+		_ = s.DB.WithContext(ctx).Save(&stage).Error
+		runner.AppendLog(task.LogFile, s.Hub, task.ID, name, "stage skipped: outbound webhook url is empty")
+		return stageOK, nil
+	}
+	cfg.URL = webhookURL
+	err := s.Notifier.SendOutboundWebhook(project, *task, cfg)
 	now := time.Now()
 	stage.FinishedAt = &now
-	stage.Status = model.StageSuccess
+	if err != nil {
+		exit := 1
+		stage.ExitCode = &exit
+		stage.Status = model.StageFailed
+		stage.ErrorMessage = err.Error()
+		_ = s.DB.WithContext(ctx).Save(&stage).Error
+		runner.AppendLog(task.LogFile, s.Hub, task.ID, name, "outbound webhook failed: "+err.Error())
+		return stageFailed, err
+	}
 	exit := 0
 	stage.ExitCode = &exit
-	if err != nil {
-		stage.ErrorMessage = err.Error()
-		runner.AppendLog(task.LogFile, s.Hub, task.ID, "notify", "notification failed: "+err.Error())
-	} else {
-		runner.AppendLog(task.LogFile, s.Hub, task.ID, "notify", "notification sent or not configured")
-	}
+	stage.Status = model.StageSuccess
 	_ = s.DB.WithContext(ctx).Save(&stage).Error
+	runner.AppendLog(task.LogFile, s.Hub, task.ID, name, "outbound webhook sent")
+	return stageOK, nil
 }
 
-func (s *Service) notify(ctx context.Context, project model.Project, task model.DeployTask, scene string) {
-	err := s.Notifier.Send(project, task, scene)
+func (s *Service) sendDefaultOutboundWebhook(ctx context.Context, project model.Project, task model.DeployTask) {
+	err := s.Notifier.SendOutboundWebhook(project, task, model.OutboundWebhookStageConfig{URL: project.DefaultOutboundWebhookURL})
 	if err != nil {
-		runner.AppendLog(task.LogFile, s.Hub, task.ID, "notify", "notification failed: "+err.Error())
+		runner.AppendLog(task.LogFile, s.Hub, task.ID, "outbound_webhook", "outbound webhook failed: "+err.Error())
 	}
 }
 
@@ -459,7 +587,6 @@ func (s *Service) startStage(ctx context.Context, task *model.DeployTask, name s
 	task.CurrentStage = name
 	_ = s.DB.WithContext(ctx).Model(task).Updates(map[string]interface{}{
 		"current_stage": name,
-		"status":        model.TaskRunning,
 	}).Error
 	stage := model.DeployTaskStage{
 		TaskID:    task.ID,

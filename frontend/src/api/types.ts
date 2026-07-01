@@ -1,12 +1,41 @@
 export type GitProvider = "gitee" | "github";
 export type DeployStatus = "pending" | "running" | "success" | "failed" | "canceled" | "rollbacked";
+export type ProjectStageType = "command" | "health_check" | "outbound_webhook";
+export type ProjectStageRunWhen = "success" | "failed" | "always";
+export type OutboundWebhookTemplate = "dingtalk_text" | "wecom_text" | "feishu_text" | "generic_json";
 
-export interface ProjectStage {
+export interface ProjectStageBase {
   name: string;
-  command: string;
+  type: ProjectStageType;
   enabled: boolean;
+  run_when?: ProjectStageRunWhen;
   continue_on_error?: boolean;
 }
+
+export interface CommandProjectStage extends ProjectStageBase {
+  type: "command";
+  config: {
+    command: string;
+  };
+}
+
+export interface HealthCheckProjectStage extends ProjectStageBase {
+  type: "health_check";
+  config?: {
+    url?: string;
+  };
+}
+
+export interface OutboundWebhookProjectStage extends ProjectStageBase {
+  type: "outbound_webhook";
+  config?: {
+    url?: string;
+    template?: OutboundWebhookTemplate;
+    message_template?: string;
+  };
+}
+
+export type ProjectStage = CommandProjectStage | HealthCheckProjectStage | OutboundWebhookProjectStage;
 
 export interface Project {
   id: number;
@@ -23,7 +52,7 @@ export interface Project {
   app_log_path?: string;
   systemd_service?: string;
   webhook_secret?: string;
-  notify_webhook?: string;
+  default_outbound_webhook_url?: string;
   auto_deploy_enabled: boolean;
   created_at?: string;
   updated_at?: string;

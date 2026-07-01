@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -30,7 +31,7 @@ func TestExecuteDeployKeepsSuccessAfterNotifyStage(t *testing.T) {
 		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
-			{Name: "noop", Command: "true", Enabled: true},
+			commandStage("noop", "true", true),
 		},
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
@@ -94,10 +95,10 @@ func TestExecuteDeployRunsDynamicStagesInOrder(t *testing.T) {
 		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
-			{Name: "checkout", Command: "true", Enabled: true},
-			{Name: "disabled", Command: "false", Enabled: false},
-			{Name: "flaky", Command: "false", Enabled: true, ContinueOnError: true},
-			{Name: "ship", Command: "true", Enabled: true},
+			commandStage("checkout", "true", true),
+			commandStage("disabled", "false", false),
+			commandStageWithPolicy("flaky", "false", "", true),
+			commandStage("ship", "true", true),
 		},
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
@@ -151,9 +152,9 @@ func TestExecuteDeployFailsWhenStageFailsWithoutContinueOnError(t *testing.T) {
 		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
-			{Name: "checkout", Command: "true", Enabled: true},
-			{Name: "build", Command: "false", Enabled: true},
-			{Name: "ship", Command: "true", Enabled: true},
+			commandStage("checkout", "true", true),
+			commandStage("build", "false", true),
+			commandStage("ship", "true", true),
 		},
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
@@ -180,6 +181,50 @@ func TestExecuteDeployFailsWhenStageFailsWithoutContinueOnError(t *testing.T) {
 	}
 	if shipCount != 0 {
 		t.Fatalf("expected ship stage to be skipped after failure, got %d rows", shipCount)
+	}
+}
+
+func TestFailedDeployRunsFailedOutboundWebhookStage(t *testing.T) {
+	var webhookCalls int32
+	webhookServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&webhookCalls, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer webhookServer.Close()
+
+	svc := newTestService(t)
+	project := model.Project{
+		Name:        "app",
+		ProjectKey:  "app",
+		GitProvider: model.GitProviderGitHub,
+		RepoURL:     "git@example.com:app.git",
+		Branch:      "main",
+		RepoDir:     t.TempDir(),
+		AppDir:      t.TempDir(),
+		Stages: []model.ProjectStage{
+			commandStage("build", "false", true),
+			outboundWebhookStage("outbound_webhook", webhookServer.URL, model.ProjectStageRunWhenFailed),
+		},
+	}
+	if err := svc.DB.Create(&project).Error; err != nil {
+		t.Fatal(err)
+	}
+	task := model.DeployTask{ProjectID: project.ID, TriggerType: model.TriggerManual, GitProvider: project.GitProvider, Branch: project.Branch, Status: model.TaskPending}
+	if err := svc.DB.Create(&task).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	svc.ExecuteTask(context.Background(), task.ID)
+
+	var got model.DeployTask
+	if err := svc.DB.First(&got, task.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != model.TaskFailed {
+		t.Fatalf("expected failed, got %s", got.Status)
+	}
+	if calls := atomic.LoadInt32(&webhookCalls); calls != 1 {
+		t.Fatalf("expected outbound webhook to be called once, got %d", calls)
 	}
 }
 
@@ -230,7 +275,7 @@ func TestStartTaskRegistersCancelBeforeLaunch(t *testing.T) {
 		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
-			{Name: "wait", Command: "sleep 2", Enabled: true},
+			commandStage("wait", "sleep 2", true),
 		},
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
@@ -270,9 +315,9 @@ func TestCanceledDeployDoesNotSendFailureNotification(t *testing.T) {
 		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
-			{Name: "wait", Command: "sleep 30", Enabled: true},
+			commandStage("wait", "sleep 30", true),
+			outboundWebhookStage("outbound_webhook", notifyServer.URL, model.ProjectStageRunWhenAlways),
 		},
-		NotifyWebhook: notifyServer.URL,
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
 		t.Fatal(err)
@@ -330,10 +375,10 @@ func TestCanceledHealthCheckDoesNotSendFailureNotification(t *testing.T) {
 		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
 		Stages: []model.ProjectStage{
-			{Name: "noop", Command: "true", Enabled: true},
+			commandStage("noop", "true", true),
+			healthCheckStage("health_check", healthServer.URL, ""),
+			outboundWebhookStage("outbound_webhook", notifyServer.URL, model.ProjectStageRunWhenAlways),
 		},
-		HealthURL:     healthServer.URL,
-		NotifyWebhook: notifyServer.URL,
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
 		t.Fatal(err)
@@ -386,4 +431,52 @@ func newTestService(t *testing.T) *Service {
 	cfg.AppLog.MaxAllowedLines = 5000
 	svc := New(database, cfg, sse.NewHub(), zap.NewNop())
 	return svc
+}
+
+func commandStage(name string, command string, enabled bool) model.ProjectStage {
+	return model.ProjectStage{
+		Name:    name,
+		Type:    model.ProjectStageTypeCommand,
+		Enabled: enabled,
+		Config:  rawStageConfig(model.CommandStageConfig{Command: command}),
+	}
+}
+
+func commandStageWithPolicy(name string, command string, runWhen string, continueOnError bool) model.ProjectStage {
+	stage := commandStage(name, command, true)
+	stage.RunWhen = runWhen
+	stage.ContinueOnError = continueOnError
+	return stage
+}
+
+func healthCheckStage(name string, url string, runWhen string) model.ProjectStage {
+	return model.ProjectStage{
+		Name:    name,
+		Type:    model.ProjectStageTypeHealthCheck,
+		Enabled: true,
+		RunWhen: runWhen,
+		Config:  rawStageConfig(model.HealthCheckStageConfig{URL: url}),
+	}
+}
+
+func outboundWebhookStage(name string, url string, runWhen string) model.ProjectStage {
+	return model.ProjectStage{
+		Name:            name,
+		Type:            model.ProjectStageTypeOutboundWebhook,
+		Enabled:         true,
+		RunWhen:         runWhen,
+		ContinueOnError: true,
+		Config: rawStageConfig(model.OutboundWebhookStageConfig{
+			URL:      url,
+			Template: "dingtalk_text",
+		}),
+	}
+}
+
+func rawStageConfig(value interface{}) json.RawMessage {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return raw
 }

@@ -195,7 +195,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		"name": true, "project_key": true, "git_provider": true, "repo_url": true, "branch": true,
 		"repo_dir": true, "app_dir": true, "rollback_cmd": true, "deploy_stages": true,
 		"health_url": true, "app_log_path": true, "systemd_service": true, "webhook_secret": true,
-		"notify_webhook": true, "auto_deploy_enabled": true,
+		"default_outbound_webhook_url": true, "auto_deploy_enabled": true,
 	}
 	updates := map[string]interface{}{}
 	stagesChanged := false
@@ -203,7 +203,7 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		if !allowed[key] {
 			continue
 		}
-		if (key == "webhook_secret" || key == "notify_webhook") && isMaskedValue(value) {
+		if (key == "webhook_secret" || key == "default_outbound_webhook_url") && isMaskedValue(value) {
 			continue
 		}
 		if err := applyProjectUpdate(&project, key, value); err != nil {
@@ -737,6 +737,9 @@ func validateProject(project model.Project) error {
 			return err
 		}
 	}
+	if err := validateProjectStages(project.Stages); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -750,14 +753,55 @@ func parseProjectStages(value interface{}) ([]model.ProjectStage, error) {
 	}
 	var stages []model.ProjectStage
 	if err := json.Unmarshal(raw, &stages); err != nil {
-		return nil, fmt.Errorf("deploy_stages must be an array of {name, command, enabled}: %v", err)
+		return nil, fmt.Errorf("deploy_stages must be an array of typed stage objects: %v", err)
 	}
+	return stages, validateProjectStages(stages)
+}
+
+func validateProjectStages(stages []model.ProjectStage) error {
 	for i, st := range stages {
 		if strings.TrimSpace(st.Name) == "" {
-			return nil, fmt.Errorf("deploy_stages[%d].name is required", i)
+			return fmt.Errorf("deploy_stages[%d].name is required", i)
+		}
+		switch st.Type {
+		case model.ProjectStageTypeCommand:
+			var cfg model.CommandStageConfig
+			if err := parseStageConfig(st, &cfg); err != nil {
+				return fmt.Errorf("deploy_stages[%d].config is invalid: %v", i, err)
+			}
+			if st.Enabled && strings.TrimSpace(cfg.Command) == "" {
+				return fmt.Errorf("deploy_stages[%d].config.command is required", i)
+			}
+		case model.ProjectStageTypeHealthCheck:
+			var cfg model.HealthCheckStageConfig
+			if err := parseStageConfig(st, &cfg); err != nil {
+				return fmt.Errorf("deploy_stages[%d].config is invalid: %v", i, err)
+			}
+		case model.ProjectStageTypeOutboundWebhook:
+			var cfg model.OutboundWebhookStageConfig
+			if err := parseStageConfig(st, &cfg); err != nil {
+				return fmt.Errorf("deploy_stages[%d].config is invalid: %v", i, err)
+			}
+			if cfg.Template != "" && cfg.Template != "dingtalk_text" && cfg.Template != "wecom_text" && cfg.Template != "feishu_text" && cfg.Template != "generic_json" {
+				return fmt.Errorf("deploy_stages[%d].config.template is unsupported", i)
+			}
+		default:
+			return fmt.Errorf("deploy_stages[%d].type must be command, health_check or outbound_webhook", i)
+		}
+		switch st.RunWhen {
+		case "", model.ProjectStageRunWhenSuccess, model.ProjectStageRunWhenFailed, model.ProjectStageRunWhenAlways:
+		default:
+			return fmt.Errorf("deploy_stages[%d].run_when must be success, failed or always", i)
 		}
 	}
-	return stages, nil
+	return nil
+}
+
+func parseStageConfig(stage model.ProjectStage, out interface{}) error {
+	if len(stage.Config) == 0 {
+		return nil
+	}
+	return json.Unmarshal(stage.Config, out)
 }
 
 func applyProjectUpdate(project *model.Project, key string, value interface{}) error {
@@ -804,8 +848,8 @@ func applyProjectUpdate(project *model.Project, key string, value interface{}) e
 		project.SystemdService = stringValue
 	case "webhook_secret":
 		project.WebhookSecret = stringValue
-	case "notify_webhook":
-		project.NotifyWebhook = stringValue
+	case "default_outbound_webhook_url":
+		project.DefaultOutboundWebhookURL = stringValue
 	case "auto_deploy_enabled":
 		v, ok := value.(bool)
 		if !ok {
@@ -844,8 +888,8 @@ func projectUpdateValue(project model.Project, key string) interface{} {
 		return project.SystemdService
 	case "webhook_secret":
 		return project.WebhookSecret
-	case "notify_webhook":
-		return project.NotifyWebhook
+	case "default_outbound_webhook_url":
+		return project.DefaultOutboundWebhookURL
 	case "auto_deploy_enabled":
 		return project.AutoDeployEnabled
 	default:
@@ -872,7 +916,7 @@ func maskProjects(projects []model.Project) []model.Project {
 
 func maskProject(project model.Project) model.Project {
 	project.WebhookSecret = util.MaskSecret(project.WebhookSecret)
-	project.NotifyWebhook = util.MaskSecret(project.NotifyWebhook)
+	project.DefaultOutboundWebhookURL = util.MaskSecret(project.DefaultOutboundWebhookURL)
 	return project
 }
 

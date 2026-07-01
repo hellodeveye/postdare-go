@@ -11,18 +11,20 @@ export const mockProjects: Project[] = [
     repo_dir: "/data/repos/my-app",
     app_dir: "/data/apps/my-app",
     deploy_stages: [
-      { name: "pull_code", command: "cd /data/repos/my-app && git fetch --all && git reset --hard origin/main", enabled: true },
-      { name: "unit_test", command: "cd /data/repos/my-app && mvn clean test", enabled: true },
-      { name: "integration_test", command: "cd /data/repos/my-app && mvn verify", enabled: true },
-      { name: "build", command: "cd /data/repos/my-app && mvn package -DskipTests", enabled: true },
-      { name: "deploy", command: "bash /data/apps/my-app/deploy.sh", enabled: true }
+      { name: "pull_code", type: "command", config: { command: "cd /data/repos/my-app && git fetch --all && git reset --hard origin/main" }, enabled: true },
+      { name: "unit_test", type: "command", config: { command: "cd /data/repos/my-app && mvn clean test" }, enabled: true },
+      { name: "integration_test", type: "command", config: { command: "cd /data/repos/my-app && mvn verify" }, enabled: true },
+      { name: "build", type: "command", config: { command: "cd /data/repos/my-app && mvn package -DskipTests" }, enabled: true },
+      { name: "deploy", type: "command", config: { command: "bash /data/apps/my-app/deploy.sh" }, enabled: true },
+      { name: "health_check", type: "health_check", config: { url: "http://127.0.0.1:8080/actuator/health" }, enabled: true },
+      { name: "outbound_webhook", type: "outbound_webhook", run_when: "always", continue_on_error: true, config: { template: "feishu_text" }, enabled: true }
     ],
     rollback_cmd: "bash /data/apps/my-app/rollback.sh",
     health_url: "http://127.0.0.1:8080/actuator/health",
     app_log_path: "/data/apps/my-app/logs/app.log",
     systemd_service: "my-app",
     webhook_secret: "******",
-    notify_webhook: "https://hooks.example.com/******",
+    default_outbound_webhook_url: "https://hooks.example.com/******",
     auto_deploy_enabled: true,
     created_at: new Date(Date.now() - 86400000).toISOString(),
     updated_at: new Date().toISOString()
@@ -37,7 +39,7 @@ export const mockProjects: Project[] = [
     repo_dir: "/data/repos/ship-worker",
     app_dir: "/data/apps/ship-worker",
     deploy_stages: [
-      { name: "deploy", command: "bash /data/apps/ship-worker/deploy.sh", enabled: true }
+      { name: "deploy", type: "command", config: { command: "bash /data/apps/ship-worker/deploy.sh" }, enabled: true }
     ],
     rollback_cmd: "bash /data/apps/ship-worker/rollback.sh",
     app_log_path: "/data/apps/ship-worker/logs/app.log",
@@ -59,7 +61,7 @@ export const mockTasks: DeployTask[] = [
     commit_message: "fix health check timeout",
     commit_author: "kim",
     status: "success",
-    current_stage: "notify",
+    current_stage: "outbound_webhook",
     started_at: new Date(Date.now() - 1800000).toISOString(),
     finished_at: new Date(Date.now() - 1500000).toISOString(),
     created_at: new Date(Date.now() - 1900000).toISOString(),

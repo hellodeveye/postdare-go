@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 
-import type { Project, ProjectStage } from "../api/types";
+import type { OutboundWebhookTemplate, Project, ProjectStage, ProjectStageRunWhen, ProjectStageType } from "../api/types";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
 
@@ -53,8 +53,8 @@ export function ProjectFields({ value, onChange }: Props) {
       <Field label="Webhook secret">
         <Input value={value.webhook_secret ?? ""} onChange={(e) => set("webhook_secret", e.target.value)} />
       </Field>
-      <Field label="Notify webhook">
-        <Input value={value.notify_webhook ?? ""} onChange={(e) => set("notify_webhook", e.target.value)} />
+      <Field label="Default outbound webhook">
+        <Input value={value.default_outbound_webhook_url ?? ""} onChange={(e) => set("default_outbound_webhook_url", e.target.value)} />
       </Field>
       <div className="lg:col-span-2">
         <StageEditor stages={value.deploy_stages ?? []} onChange={(next) => set("deploy_stages", next)} />
@@ -77,7 +77,13 @@ export function ProjectFields({ value, onChange }: Props) {
 
 function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (next: ProjectStage[]) => void }) {
   const update = (index: number, patch: Partial<ProjectStage>) =>
-    onChange(stages.map((stage, i) => (i === index ? { ...stage, ...patch } : stage)));
+    onChange(stages.map((stage, i) => (i === index ? ({ ...stage, ...patch } as ProjectStage) : stage)));
+  const updateConfig = (index: number, patch: Record<string, string>) =>
+    onChange(
+      stages.map((stage, i) =>
+        i === index ? ({ ...stage, config: { ...(stage.config ?? {}), ...patch } } as ProjectStage) : stage
+      )
+    );
   const remove = (index: number) => onChange(stages.filter((_, i) => i !== index));
   const move = (index: number, delta: number) => {
     const target = index + delta;
@@ -86,7 +92,11 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
     [next[index], next[target]] = [next[target], next[index]];
     onChange(next);
   };
-  const add = () => onChange([...stages, { name: "", command: "", enabled: true }]);
+  const add = () => onChange([...stages, newStage("command")]);
+  const setType = (index: number, type: ProjectStageType) => {
+    const current = stages[index];
+    onChange(stages.map((stage, i) => (i === index ? { ...newStage(type), name: current.name, enabled: current.enabled } : stage)));
+  };
 
   return (
     <div className="grid gap-2">
@@ -117,11 +127,65 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                     value={stage.name}
                     onChange={(e) => update(index, { name: e.target.value })}
                   />
-                  <Textarea
-                    placeholder="Shell command"
-                    value={stage.command}
-                    onChange={(e) => update(index, { command: e.target.value })}
-                  />
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <select
+                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                      value={stage.type}
+                      onChange={(e) => setType(index, e.target.value as ProjectStageType)}
+                    >
+                      <option value="command">Command</option>
+                      <option value="health_check">Health check</option>
+                      <option value="outbound_webhook">Outbound webhook</option>
+                    </select>
+                    <select
+                      className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                      value={stage.run_when ?? ""}
+                      onChange={(e) => update(index, { run_when: (e.target.value || undefined) as ProjectStageRunWhen | undefined })}
+                    >
+                      <option value="">Main flow</option>
+                      <option value="success">On success</option>
+                      <option value="failed">On failed</option>
+                      <option value="always">Always</option>
+                    </select>
+                  </div>
+                  {stage.type === "command" ? (
+                    <Textarea
+                      placeholder="Shell command"
+                      value={stage.config.command}
+                      onChange={(e) => updateConfig(index, { command: e.target.value })}
+                    />
+                  ) : null}
+                  {stage.type === "health_check" ? (
+                    <Input
+                      placeholder="Health URL"
+                      value={stage.config?.url ?? ""}
+                      onChange={(e) => updateConfig(index, { url: e.target.value })}
+                    />
+                  ) : null}
+                  {stage.type === "outbound_webhook" ? (
+                    <div className="grid gap-2">
+                      <Input
+                        placeholder="Webhook URL"
+                        value={stage.config?.url ?? ""}
+                        onChange={(e) => updateConfig(index, { url: e.target.value })}
+                      />
+                      <select
+                        className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                        value={stage.config?.template ?? "dingtalk_text"}
+                        onChange={(e) => updateConfig(index, { template: e.target.value as OutboundWebhookTemplate })}
+                      >
+                        <option value="dingtalk_text">DingTalk text</option>
+                        <option value="wecom_text">WeCom text</option>
+                        <option value="feishu_text">Feishu text</option>
+                        <option value="generic_json">Generic JSON</option>
+                      </select>
+                      <Textarea
+                        placeholder="Message template"
+                        value={stage.config?.message_template ?? ""}
+                        onChange={(e) => updateConfig(index, { message_template: e.target.value })}
+                      />
+                    </div>
+                  ) : null}
                   <div className="flex flex-wrap items-center gap-4 text-xs text-ink">
                     <label className="flex items-center gap-1.5">
                       <input
@@ -161,6 +225,23 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
       )}
     </div>
   );
+}
+
+function newStage(type: ProjectStageType): ProjectStage {
+  if (type === "health_check") {
+    return { name: "health_check", type, enabled: true, config: {} };
+  }
+  if (type === "outbound_webhook") {
+    return {
+      name: "outbound_webhook",
+      type,
+      enabled: true,
+      run_when: "always",
+      continue_on_error: true,
+      config: { template: "dingtalk_text" }
+    };
+  }
+  return { name: "", type: "command", enabled: true, config: { command: "" } };
 }
 
 function IconButton({

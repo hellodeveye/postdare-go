@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"time"
 
 	"gorm.io/datatypes"
@@ -27,6 +28,14 @@ const (
 	StageSuccess = "success"
 	StageFailed  = "failed"
 	StageSkipped = "skipped"
+
+	ProjectStageTypeCommand         = "command"
+	ProjectStageTypeHealthCheck     = "health_check"
+	ProjectStageTypeOutboundWebhook = "outbound_webhook"
+
+	ProjectStageRunWhenSuccess = "success"
+	ProjectStageRunWhenFailed  = "failed"
+	ProjectStageRunWhenAlways  = "always"
 )
 
 type User struct {
@@ -39,34 +48,50 @@ type User struct {
 }
 
 type Project struct {
-	ID                uint64         `gorm:"primaryKey" json:"id"`
-	Name              string         `gorm:"size:100;not null" json:"name"`
-	ProjectKey        string         `gorm:"size:100;uniqueIndex;not null" json:"project_key"`
-	GitProvider       string         `gorm:"size:50;not null;default:gitee" json:"git_provider"`
-	RepoURL           string         `gorm:"size:500;not null" json:"repo_url"`
-	Branch            string         `gorm:"size:100;not null;default:main" json:"branch"`
-	RepoDir           string         `gorm:"size:500;not null" json:"repo_dir"`
-	AppDir            string         `gorm:"size:500;not null" json:"app_dir"`
-	RollbackCmd       string         `gorm:"type:text" json:"rollback_cmd"`
-	Stages            []ProjectStage `gorm:"column:deploy_stages;serializer:json;type:json" json:"deploy_stages"`
-	HealthURL         string         `gorm:"size:500" json:"health_url"`
-	AppLogPath        string         `gorm:"size:500" json:"app_log_path"`
-	SystemdService    string         `gorm:"size:100" json:"systemd_service"`
-	WebhookSecret     string         `gorm:"size:255" json:"webhook_secret,omitempty"`
-	NotifyWebhook     string         `gorm:"size:1000" json:"notify_webhook,omitempty"`
-	AutoDeployEnabled bool           `gorm:"not null;default:false" json:"auto_deploy_enabled"`
-	CreatedAt         time.Time      `json:"created_at"`
-	UpdatedAt         time.Time      `json:"updated_at"`
+	ID                        uint64         `gorm:"primaryKey" json:"id"`
+	Name                      string         `gorm:"size:100;not null" json:"name"`
+	ProjectKey                string         `gorm:"size:100;uniqueIndex;not null" json:"project_key"`
+	GitProvider               string         `gorm:"size:50;not null;default:gitee" json:"git_provider"`
+	RepoURL                   string         `gorm:"size:500;not null" json:"repo_url"`
+	Branch                    string         `gorm:"size:100;not null;default:main" json:"branch"`
+	RepoDir                   string         `gorm:"size:500;not null" json:"repo_dir"`
+	AppDir                    string         `gorm:"size:500;not null" json:"app_dir"`
+	RollbackCmd               string         `gorm:"type:text" json:"rollback_cmd"`
+	Stages                    []ProjectStage `gorm:"column:deploy_stages;serializer:json;type:json" json:"deploy_stages"`
+	HealthURL                 string         `gorm:"size:500" json:"health_url"`
+	AppLogPath                string         `gorm:"size:500" json:"app_log_path"`
+	SystemdService            string         `gorm:"size:100" json:"systemd_service"`
+	WebhookSecret             string         `gorm:"size:255" json:"webhook_secret,omitempty"`
+	DefaultOutboundWebhookURL string         `gorm:"size:1000" json:"default_outbound_webhook_url,omitempty"`
+	AutoDeployEnabled         bool           `gorm:"not null;default:false" json:"auto_deploy_enabled"`
+	CreatedAt                 time.Time      `json:"created_at"`
+	UpdatedAt                 time.Time      `json:"updated_at"`
 }
 
 // ProjectStage is one entry in a project's ordered, user-defined deploy pipeline.
 // Stages run in slice order; disabled stages are skipped, and ContinueOnError
 // allows a failed command to be recorded without aborting the task.
 type ProjectStage struct {
-	Name            string `json:"name"`
-	Command         string `json:"command"`
-	Enabled         bool   `json:"enabled"`
-	ContinueOnError bool   `json:"continue_on_error,omitempty"`
+	Name            string          `json:"name"`
+	Type            string          `json:"type"`
+	Enabled         bool            `json:"enabled"`
+	RunWhen         string          `json:"run_when,omitempty"`
+	ContinueOnError bool            `json:"continue_on_error,omitempty"`
+	Config          json.RawMessage `json:"config,omitempty"`
+}
+
+type CommandStageConfig struct {
+	Command string `json:"command"`
+}
+
+type HealthCheckStageConfig struct {
+	URL string `json:"url,omitempty"`
+}
+
+type OutboundWebhookStageConfig struct {
+	URL             string `json:"url,omitempty"`
+	Template        string `json:"template"`
+	MessageTemplate string `json:"message_template,omitempty"`
 }
 
 type DeployTask struct {
