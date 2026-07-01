@@ -21,9 +21,8 @@ sudo systemctl enable --now postdare-go
 
 ## Deploy Stages
 
-Each project defines an ordered list of deploy stages (`deploy_stages`) instead of the
-previously fixed unit-test/integration-test/build/deploy steps. A stage is a named shell
-command that runs in list order:
+Each project defines an ordered list of deploy stages (`deploy_stages`). A stage is a
+named shell command that runs in list order:
 
 - `enabled: false` skips the stage.
 - `continue_on_error: true` records the stage as failed but keeps the pipeline running.
@@ -43,10 +42,6 @@ bash /data/apps/my-app/rollback.sh
 
 Do not pass command strings from the frontend at deploy time. Store stages in the project
 configuration.
-
-Projects created before dynamic stages are migrated automatically on startup: their legacy
-`pull_cmd`/`unit_test_cmd`/`integration_test_cmd`/`build_cmd`/`deploy_cmd` fields are backfilled
-into `deploy_stages` in the same order, so their deploy behavior is unchanged.
 
 ## Logs
 

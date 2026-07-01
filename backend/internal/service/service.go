@@ -329,36 +329,9 @@ func (s *Service) executeCommandStage(ctx context.Context, task *model.DeployTas
 	}
 }
 
-// DeployStages returns the ordered command stages to run for a deploy. An explicit
-// pipeline (project.Stages) is used as-is; otherwise the legacy command fields are
-// mapped into the default order so pre-migration projects keep their behavior.
+// DeployStages returns the ordered command stages configured for a deploy.
 func DeployStages(project model.Project) []model.ProjectStage {
-	if len(project.Stages) > 0 {
-		return project.Stages
-	}
-	return LegacyDeployStages(project)
-}
-
-// LegacyDeployStages builds a default pipeline from the deprecated per-command fields,
-// preserving the original pull_code → unit_test → integration_test → build → deploy
-// order and skipping stages whose command is empty. Reused by the DB backfill.
-func LegacyDeployStages(project model.Project) []model.ProjectStage {
-	candidates := []model.ProjectStage{
-		{Name: "pull_code", Command: pullCommand(project)},
-		{Name: "unit_test", Command: project.UnitTestCmd},
-		{Name: "integration_test", Command: project.IntegrationTestCmd},
-		{Name: "build", Command: project.BuildCmd},
-		{Name: "deploy", Command: project.DeployCmd},
-	}
-	stages := make([]model.ProjectStage, 0, len(candidates))
-	for _, c := range candidates {
-		if strings.TrimSpace(c.Command) == "" {
-			continue
-		}
-		c.Enabled = true
-		stages = append(stages, c)
-	}
-	return stages
+	return project.Stages
 }
 
 func (s *Service) executeHealthCheckStage(ctx context.Context, task *model.DeployTask, healthURL string) bool {
@@ -580,15 +553,4 @@ func (s *Service) isCanceled(ctx context.Context, taskID uint64) bool {
 		return false
 	}
 	return task.Status == model.TaskCanceled
-}
-
-func pullCommand(project model.Project) string {
-	if strings.TrimSpace(project.PullCmd) != "" {
-		return project.PullCmd
-	}
-	return fmt.Sprintf("cd %s && git fetch --all && git reset --hard origin/%s", shellQuote(project.RepoDir), shellQuote(project.Branch))
-}
-
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }

@@ -1,17 +1,14 @@
 package db
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/datatypes"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	"postdare-go/backend/internal/config"
 	"postdare-go/backend/internal/model"
-	"postdare-go/backend/internal/service"
 )
 
 const defaultAdminPassword = "admin123456"
@@ -38,37 +35,7 @@ func Open(cfg config.DatabaseConfig) (*gorm.DB, error) {
 	if err := seedDefaultAdmin(database); err != nil {
 		return nil, err
 	}
-	if err := backfillDeployStages(database); err != nil {
-		return nil, err
-	}
 	return database, nil
-}
-
-// backfillDeployStages populates the new deploy_stages pipeline for projects created
-// before dynamic stages existed. For each project without a pipeline, it derives one
-// from the legacy per-command fields so their deploy behavior is unchanged.
-func backfillDeployStages(database *gorm.DB) error {
-	var projects []model.Project
-	if err := database.Find(&projects).Error; err != nil {
-		return fmt.Errorf("load projects for stage backfill: %w", err)
-	}
-	for i := range projects {
-		if len(projects[i].Stages) > 0 {
-			continue
-		}
-		stages := service.LegacyDeployStages(projects[i])
-		if len(stages) == 0 {
-			continue
-		}
-		rawStages, err := json.Marshal(stages)
-		if err != nil {
-			return fmt.Errorf("marshal deploy stages for project %d: %w", projects[i].ID, err)
-		}
-		if err := database.Model(&projects[i]).Update("stages", datatypes.JSON(rawStages)).Error; err != nil {
-			return fmt.Errorf("backfill deploy stages for project %d: %w", projects[i].ID, err)
-		}
-	}
-	return nil
 }
 
 func seedDefaultAdmin(database *gorm.DB) error {

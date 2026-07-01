@@ -29,7 +29,9 @@ func TestExecuteDeployKeepsSuccessAfterNotifyStage(t *testing.T) {
 		Branch:      "main",
 		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
-		PullCmd:     "true",
+		Stages: []model.ProjectStage{
+			{Name: "noop", Command: "true", Enabled: true},
+		},
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
 		t.Fatal(err)
@@ -227,7 +229,9 @@ func TestStartTaskRegistersCancelBeforeLaunch(t *testing.T) {
 		Branch:      "main",
 		RepoDir:     t.TempDir(),
 		AppDir:      t.TempDir(),
-		PullCmd:     "sleep 2",
+		Stages: []model.ProjectStage{
+			{Name: "wait", Command: "sleep 2", Enabled: true},
+		},
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
 		t.Fatal(err)
@@ -258,14 +262,16 @@ func TestCanceledDeployDoesNotSendFailureNotification(t *testing.T) {
 
 	svc := newTestService(t)
 	project := model.Project{
-		Name:          "app",
-		ProjectKey:    "app",
-		GitProvider:   model.GitProviderGitHub,
-		RepoURL:       "git@example.com:app.git",
-		Branch:        "main",
-		RepoDir:       t.TempDir(),
-		AppDir:        t.TempDir(),
-		PullCmd:       "sleep 30",
+		Name:        "app",
+		ProjectKey:  "app",
+		GitProvider: model.GitProviderGitHub,
+		RepoURL:     "git@example.com:app.git",
+		Branch:      "main",
+		RepoDir:     t.TempDir(),
+		AppDir:      t.TempDir(),
+		Stages: []model.ProjectStage{
+			{Name: "wait", Command: "sleep 30", Enabled: true},
+		},
 		NotifyWebhook: notifyServer.URL,
 	}
 	if err := svc.DB.Create(&project).Error; err != nil {
@@ -316,14 +322,16 @@ func TestCanceledHealthCheckDoesNotSendFailureNotification(t *testing.T) {
 
 	svc := newTestService(t)
 	project := model.Project{
-		Name:          "app",
-		ProjectKey:    "app",
-		GitProvider:   model.GitProviderGitHub,
-		RepoURL:       "git@example.com:app.git",
-		Branch:        "main",
-		RepoDir:       t.TempDir(),
-		AppDir:        t.TempDir(),
-		PullCmd:       "true",
+		Name:        "app",
+		ProjectKey:  "app",
+		GitProvider: model.GitProviderGitHub,
+		RepoURL:     "git@example.com:app.git",
+		Branch:      "main",
+		RepoDir:     t.TempDir(),
+		AppDir:      t.TempDir(),
+		Stages: []model.ProjectStage{
+			{Name: "noop", Command: "true", Enabled: true},
+		},
 		HealthURL:     healthServer.URL,
 		NotifyWebhook: notifyServer.URL,
 	}

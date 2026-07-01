@@ -193,10 +193,8 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 	}
 	allowed := map[string]bool{
 		"name": true, "project_key": true, "git_provider": true, "repo_url": true, "branch": true,
-		"repo_dir": true, "app_dir": true, "pull_cmd": true, "unit_test_cmd": true,
-		"integration_test_cmd": true, "build_cmd": true, "deploy_cmd": true, "rollback_cmd": true,
-		"deploy_stages": true,
-		"health_url":    true, "app_log_path": true, "systemd_service": true, "webhook_secret": true,
+		"repo_dir": true, "app_dir": true, "rollback_cmd": true, "deploy_stages": true,
+		"health_url": true, "app_log_path": true, "systemd_service": true, "webhook_secret": true,
 		"notify_webhook": true, "auto_deploy_enabled": true,
 	}
 	updates := map[string]interface{}{}
@@ -796,16 +794,6 @@ func applyProjectUpdate(project *model.Project, key string, value interface{}) e
 		project.RepoDir = stringValue
 	case "app_dir":
 		project.AppDir = stringValue
-	case "pull_cmd":
-		project.PullCmd = stringValue
-	case "unit_test_cmd":
-		project.UnitTestCmd = stringValue
-	case "integration_test_cmd":
-		project.IntegrationTestCmd = stringValue
-	case "build_cmd":
-		project.BuildCmd = stringValue
-	case "deploy_cmd":
-		project.DeployCmd = stringValue
 	case "rollback_cmd":
 		project.RollbackCmd = stringValue
 	case "health_url":
@@ -844,16 +832,6 @@ func projectUpdateValue(project model.Project, key string) interface{} {
 		return project.RepoDir
 	case "app_dir":
 		return project.AppDir
-	case "pull_cmd":
-		return project.PullCmd
-	case "unit_test_cmd":
-		return project.UnitTestCmd
-	case "integration_test_cmd":
-		return project.IntegrationTestCmd
-	case "build_cmd":
-		return project.BuildCmd
-	case "deploy_cmd":
-		return project.DeployCmd
 	case "rollback_cmd":
 		return project.RollbackCmd
 	case "deploy_stages":
