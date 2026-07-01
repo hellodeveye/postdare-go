@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, HelpCircle, Plus, Trash2 } from "lucide-react";
 
 import type { OutboundWebhookTemplate, Project, ProjectStage, ProjectStageRunWhen, ProjectStageType } from "../api/types";
 import { Input } from "./ui/input";
@@ -191,11 +191,12 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                         value={stage.config?.message_template ?? ""}
                         onChange={(e) => updateConfig(index, { message_template: e.target.value })}
                       />
-                      <details className="group rounded-md border border-border bg-surface-2/30 px-3 py-2">
-                        <summary className="cursor-pointer list-none text-xs text-muted outline-none transition-colors hover:text-ink">
-                          留空将使用系统默认模板，点击查看默认模板
+                      <details className="group rounded-md border border-border bg-surface-2/30">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs text-muted outline-none transition-colors hover:text-ink group-open:text-primary">
+                          <span>留空时使用系统默认模板</span>
+                          <HelpCircle className="h-3.5 w-3.5" />
                         </summary>
-                        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap border-t border-border pt-2 text-xs leading-relaxed text-muted">
+                        <pre className="m-3 mt-0 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-surface p-3 text-xs leading-relaxed text-muted">
                           {defaultMessageTemplate}
                         </pre>
                       </details>
