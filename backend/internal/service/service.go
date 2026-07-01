@@ -217,21 +217,24 @@ func (s *Service) ExecuteTask(ctx context.Context, taskID uint64) {
 }
 
 func (s *Service) executeDeploy(ctx context.Context, project model.Project, task *model.DeployTask) {
-	stages := []struct {
-		name    string
-		command string
-	}{
-		{name: "pull_code", command: pullCommand(project)},
-		{name: "unit_test", command: project.UnitTestCmd},
-		{name: "integration_test", command: project.IntegrationTestCmd},
-		{name: "build", command: project.BuildCmd},
-		{name: "deploy", command: project.DeployCmd},
-	}
-	for _, stage := range stages {
-		if !s.executeCommandStage(ctx, task, stage.name, stage.command) {
-			if task.Status != model.TaskCanceled {
-				s.notify(ctx, project, *task, "部署失败")
+	for _, stage := range DeployStages(project) {
+		if !stage.Enabled {
+			continue
+		}
+		outcome, err := s.runStage(ctx, task, stage.Name, stage.Command)
+		switch outcome {
+		case stageOK:
+			continue
+		case stageCanceled:
+			s.finishTask(context.Background(), task, model.TaskCanceled, "canceled by user")
+			return
+		default: // stageFailed
+			if stage.ContinueOnError {
+				runner.AppendLog(task.LogFile, s.Hub, task.ID, stage.Name, fmt.Sprintf("stage failed but continue_on_error is set, continuing: %v", err))
+				continue
 			}
+			s.failTask(ctx, task, stage.Name, err)
+			s.notify(ctx, project, *task, "部署失败")
 			return
 		}
 	}
@@ -262,10 +265,23 @@ func (s *Service) executeRollback(ctx context.Context, project model.Project, ta
 	s.finishTask(ctx, task, model.TaskRollbacked, "")
 }
 
-func (s *Service) executeCommandStage(ctx context.Context, task *model.DeployTask, name string, command string) bool {
+// stageOutcome is the result of running a single command stage without any
+// task-level side effects. Callers decide how a failure affects the task
+// (deploy honors continue_on_error, rollback always aborts).
+type stageOutcome int
+
+const (
+	stageOK stageOutcome = iota
+	stageFailed
+	stageCanceled
+)
+
+// runStage executes one shell-command stage and records its DeployTaskStage row.
+// It never mutates task-level status; on failure it returns the underlying error
+// so the caller can surface it via failTask when appropriate.
+func (s *Service) runStage(ctx context.Context, task *model.DeployTask, name string, command string) (stageOutcome, error) {
 	if s.isCanceled(ctx, task.ID) {
-		s.finishTask(ctx, task, model.TaskCanceled, "canceled by user")
-		return false
+		return stageCanceled, nil
 	}
 	stage := s.startStage(ctx, task, name)
 	if strings.TrimSpace(command) == "" {
@@ -274,7 +290,7 @@ func (s *Service) executeCommandStage(ctx context.Context, task *model.DeployTas
 		stage.FinishedAt = &now
 		_ = s.DB.WithContext(ctx).Save(&stage).Error
 		runner.AppendLog(task.LogFile, s.Hub, task.ID, name, "stage skipped: empty command")
-		return true
+		return stageOK, nil
 	}
 	runner.AppendLog(task.LogFile, s.Hub, task.ID, name, "stage started")
 	err := s.Runner.Run(ctx, task.ID, name, command)
@@ -287,17 +303,62 @@ func (s *Service) executeCommandStage(ctx context.Context, task *model.DeployTas
 		stage.ErrorMessage = err.Error()
 		_ = s.DB.WithContext(ctx).Save(&stage).Error
 		if s.isCanceled(context.Background(), task.ID) {
-			s.finishTask(context.Background(), task, model.TaskCanceled, "canceled by user")
-			return false
+			return stageCanceled, err
 		}
-		s.failTask(ctx, task, name, err)
-		return false
+		return stageFailed, err
 	}
 	exit := 0
 	stage.ExitCode = &exit
 	stage.Status = model.StageSuccess
 	_ = s.DB.WithContext(ctx).Save(&stage).Error
-	return true
+	return stageOK, nil
+}
+
+// executeCommandStage runs a stage and applies the default "fail the whole task on
+// error" behavior. Used by the rollback path, which has no per-stage error policy.
+func (s *Service) executeCommandStage(ctx context.Context, task *model.DeployTask, name string, command string) bool {
+	switch outcome, err := s.runStage(ctx, task, name, command); outcome {
+	case stageOK:
+		return true
+	case stageCanceled:
+		s.finishTask(context.Background(), task, model.TaskCanceled, "canceled by user")
+		return false
+	default: // stageFailed
+		s.failTask(ctx, task, name, err)
+		return false
+	}
+}
+
+// DeployStages returns the ordered command stages to run for a deploy. An explicit
+// pipeline (project.Stages) is used as-is; otherwise the legacy command fields are
+// mapped into the default order so pre-migration projects keep their behavior.
+func DeployStages(project model.Project) []model.ProjectStage {
+	if len(project.Stages) > 0 {
+		return project.Stages
+	}
+	return LegacyDeployStages(project)
+}
+
+// LegacyDeployStages builds a default pipeline from the deprecated per-command fields,
+// preserving the original pull_code → unit_test → integration_test → build → deploy
+// order and skipping stages whose command is empty. Reused by the DB backfill.
+func LegacyDeployStages(project model.Project) []model.ProjectStage {
+	candidates := []model.ProjectStage{
+		{Name: "pull_code", Command: pullCommand(project)},
+		{Name: "unit_test", Command: project.UnitTestCmd},
+		{Name: "integration_test", Command: project.IntegrationTestCmd},
+		{Name: "build", Command: project.BuildCmd},
+		{Name: "deploy", Command: project.DeployCmd},
+	}
+	stages := make([]model.ProjectStage, 0, len(candidates))
+	for _, c := range candidates {
+		if strings.TrimSpace(c.Command) == "" {
+			continue
+		}
+		c.Enabled = true
+		stages = append(stages, c)
+	}
+	return stages
 }
 
 func (s *Service) executeHealthCheckStage(ctx context.Context, task *model.DeployTask, healthURL string) bool {

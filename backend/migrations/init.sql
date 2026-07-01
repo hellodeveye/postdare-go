@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS projects (
   build_cmd TEXT,
   deploy_cmd TEXT,
   rollback_cmd TEXT,
+  deploy_stages JSON,
   health_url VARCHAR(500),
   app_log_path VARCHAR(500),
   systemd_service VARCHAR(100),

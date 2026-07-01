@@ -1,6 +1,13 @@
 export type GitProvider = "gitee" | "github";
 export type DeployStatus = "pending" | "running" | "success" | "failed" | "canceled" | "rollbacked";
 
+export interface ProjectStage {
+  name: string;
+  command: string;
+  enabled: boolean;
+  continue_on_error?: boolean;
+}
+
 export interface Project {
   id: number;
   name: string;
@@ -10,12 +17,18 @@ export interface Project {
   branch: string;
   repo_dir: string;
   app_dir: string;
+  /** @deprecated superseded by deploy_stages; kept for backward compatibility */
   pull_cmd?: string;
+  /** @deprecated superseded by deploy_stages */
   unit_test_cmd?: string;
+  /** @deprecated superseded by deploy_stages */
   integration_test_cmd?: string;
+  /** @deprecated superseded by deploy_stages */
   build_cmd?: string;
+  /** @deprecated superseded by deploy_stages */
   deploy_cmd?: string;
   rollback_cmd?: string;
+  deploy_stages?: ProjectStage[];
   health_url?: string;
   app_log_path?: string;
   systemd_service?: string;

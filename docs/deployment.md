@@ -19,18 +19,34 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now postdare-go
 ```
 
-## Application Scripts
+## Deploy Stages
 
-Project commands should be explicit and absolute:
+Each project defines an ordered list of deploy stages (`deploy_stages`) instead of the
+previously fixed unit-test/integration-test/build/deploy steps. A stage is a named shell
+command that runs in list order:
+
+- `enabled: false` skips the stage.
+- `continue_on_error: true` records the stage as failed but keeps the pipeline running.
+
+After all stages complete, the fixed `health_check` (driven by `health_url`) and `notify`
+steps run as before. Rollback stays separate and uses `rollback_cmd`.
+
+Project commands should be explicit and absolute, for example:
 
 ```bash
+cd /data/repos/my-app && git fetch --all && git reset --hard origin/main
 cd /data/repos/my-app && mvn clean test
 cd /data/repos/my-app && mvn package -DskipTests
 bash /data/apps/my-app/deploy.sh
 bash /data/apps/my-app/rollback.sh
 ```
 
-Do not pass command strings from the frontend at deploy time. Store commands in the project configuration.
+Do not pass command strings from the frontend at deploy time. Store stages in the project
+configuration.
+
+Projects created before dynamic stages are migrated automatically on startup: their legacy
+`pull_cmd`/`unit_test_cmd`/`integration_test_cmd`/`build_cmd`/`deploy_cmd` fields are backfilled
+into `deploy_stages` in the same order, so their deploy behavior is unchanged.
 
 ## Logs
 
