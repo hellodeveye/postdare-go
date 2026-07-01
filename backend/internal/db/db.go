@@ -1,9 +1,11 @@
 package db
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/datatypes"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -58,7 +60,11 @@ func backfillDeployStages(database *gorm.DB) error {
 		if len(stages) == 0 {
 			continue
 		}
-		if err := database.Model(&projects[i]).Update("stages", stages).Error; err != nil {
+		rawStages, err := json.Marshal(stages)
+		if err != nil {
+			return fmt.Errorf("marshal deploy stages for project %d: %w", projects[i].ID, err)
+		}
+		if err := database.Model(&projects[i]).Update("stages", datatypes.JSON(rawStages)).Error; err != nil {
 			return fmt.Errorf("backfill deploy stages for project %d: %w", projects[i].ID, err)
 		}
 	}
