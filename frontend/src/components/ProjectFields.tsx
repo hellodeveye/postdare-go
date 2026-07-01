@@ -191,12 +191,18 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                         value={stage.config?.message_template ?? ""}
                         onChange={(e) => updateConfig(index, { message_template: e.target.value })}
                       />
-                      <details className="group rounded-md border border-border bg-surface-2/30">
-                        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs text-muted outline-none transition-colors hover:text-ink group-open:text-primary">
-                          <span>留空时使用系统默认模板</span>
-                          <HelpCircle className="h-3.5 w-3.5" />
+                      <details className="group">
+                        <summary className="flex cursor-pointer list-none items-start gap-2">
+                          <Textarea
+                            className="min-h-[80px] flex-1 cursor-text"
+                            placeholder="留空则使用系统默认消息模板"
+                            value={stage.config?.message_template ?? ""}
+                            onChange={(e) => updateConfig(index, { message_template: e.target.value })}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <HelpCircle className="mt-2 h-4 w-4 shrink-0 text-muted group-open:text-primary" />
                         </summary>
-                        <pre className="m-3 mt-0 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-surface p-3 text-xs leading-relaxed text-muted">
+                        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface p-3 text-xs leading-relaxed text-muted">
                           {defaultMessageTemplate}
                         </pre>
                       </details>
