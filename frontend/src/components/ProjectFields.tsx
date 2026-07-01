@@ -191,12 +191,14 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                         value={stage.config?.message_template ?? ""}
                         onChange={(e) => updateConfig(index, { message_template: e.target.value })}
                       />
-                      <div className="rounded-md border border-border bg-surface-2/40 p-3">
-                        <div className="mb-2 text-xs font-medium text-muted">Default message template</div>
-                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs leading-relaxed text-muted">
+                      <details className="group rounded-md border border-border bg-surface-2/30 px-3 py-2">
+                        <summary className="cursor-pointer list-none text-xs text-muted outline-none transition-colors hover:text-ink">
+                          留空将使用系统默认模板，点击查看默认模板
+                        </summary>
+                        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap border-t border-border pt-2 text-xs leading-relaxed text-muted">
                           {defaultMessageTemplate}
                         </pre>
-                      </div>
+                      </details>
                     </div>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-4 text-xs text-ink">
