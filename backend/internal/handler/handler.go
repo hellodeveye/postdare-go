@@ -195,10 +195,12 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		"name": true, "project_key": true, "git_provider": true, "repo_url": true, "branch": true,
 		"repo_dir": true, "app_dir": true, "pull_cmd": true, "unit_test_cmd": true,
 		"integration_test_cmd": true, "build_cmd": true, "deploy_cmd": true, "rollback_cmd": true,
-		"health_url": true, "app_log_path": true, "systemd_service": true, "webhook_secret": true,
+		"deploy_stages": true,
+		"health_url":    true, "app_log_path": true, "systemd_service": true, "webhook_secret": true,
 		"notify_webhook": true, "auto_deploy_enabled": true,
 	}
 	updates := map[string]interface{}{}
+	stagesChanged := false
 	for key, value := range payload {
 		if !allowed[key] {
 			continue
@@ -210,9 +212,15 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 			util.Error(c, http.StatusUnprocessableEntity, "INVALID_PROJECT", err.Error(), nil)
 			return
 		}
+		// deploy_stages is a JSON serializer field; it is persisted separately below
+		// so gorm runs the serializer (map-based Updates would not).
+		if key == "deploy_stages" {
+			stagesChanged = true
+			continue
+		}
 		updates[key] = projectUpdateValue(project, key)
 	}
-	if len(updates) == 0 {
+	if len(updates) == 0 && !stagesChanged {
 		util.OK(c, maskProject(project))
 		return
 	}
@@ -220,9 +228,18 @@ func (h *Handler) UpdateProject(c *gin.Context) {
 		util.Error(c, http.StatusUnprocessableEntity, "INVALID_PROJECT", err.Error(), nil)
 		return
 	}
-	if err := h.DB.Model(&project).Updates(updates).Error; err != nil {
-		util.Error(c, http.StatusConflict, "PROJECT_UPDATE_FAILED", "Failed to update project", err.Error())
-		return
+	if len(updates) > 0 {
+		if err := h.DB.Model(&project).Updates(updates).Error; err != nil {
+			util.Error(c, http.StatusConflict, "PROJECT_UPDATE_FAILED", "Failed to update project", err.Error())
+			return
+		}
+	}
+	if stagesChanged {
+		// Select forces the field to be written even when the pipeline is emptied.
+		if err := h.DB.Model(&project).Select("Stages").Updates(project).Error; err != nil {
+			util.Error(c, http.StatusConflict, "PROJECT_UPDATE_FAILED", "Failed to update project", err.Error())
+			return
+		}
 	}
 	_ = h.DB.First(&project, project.ID).Error
 	util.OK(c, maskProject(project))
@@ -725,7 +742,35 @@ func validateProject(project model.Project) error {
 	return nil
 }
 
+func parseProjectStages(value interface{}) ([]model.ProjectStage, error) {
+	if value == nil {
+		return nil, nil
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return nil, fmt.Errorf("deploy_stages is invalid: %v", err)
+	}
+	var stages []model.ProjectStage
+	if err := json.Unmarshal(raw, &stages); err != nil {
+		return nil, fmt.Errorf("deploy_stages must be an array of {name, command, enabled}: %v", err)
+	}
+	for i, st := range stages {
+		if strings.TrimSpace(st.Name) == "" {
+			return nil, fmt.Errorf("deploy_stages[%d].name is required", i)
+		}
+	}
+	return stages, nil
+}
+
 func applyProjectUpdate(project *model.Project, key string, value interface{}) error {
+	if key == "deploy_stages" {
+		stages, err := parseProjectStages(value)
+		if err != nil {
+			return err
+		}
+		project.Stages = stages
+		return nil
+	}
 	stringValue := ""
 	if key != "auto_deploy_enabled" {
 		if value != nil {
@@ -811,6 +856,8 @@ func projectUpdateValue(project model.Project, key string) interface{} {
 		return project.DeployCmd
 	case "rollback_cmd":
 		return project.RollbackCmd
+	case "deploy_stages":
+		return project.Stages
 	case "health_url":
 		return project.HealthURL
 	case "app_log_path":

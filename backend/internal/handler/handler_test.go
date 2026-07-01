@@ -17,6 +17,111 @@ import (
 	"postdare-go/backend/internal/sse"
 )
 
+func TestUpdateProjectPersistsDeployStages(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&model.Project{}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{}
+	svc := service.New(database, cfg, sse.NewHub(), zap.NewNop())
+	h := &Handler{DB: database, Config: cfg, Service: svc, Hub: sse.NewHub()}
+	router := gin.New()
+	router.PATCH("/projects/:project_id", h.UpdateProject)
+
+	project := model.Project{
+		Name:        "app",
+		ProjectKey:  "app",
+		GitProvider: model.GitProviderGitHub,
+		RepoURL:     "git@example.com:app.git",
+		Branch:      "main",
+		RepoDir:     "/data/repo",
+		AppDir:      "/data/app",
+	}
+	if err := database.Create(&project).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	body := `{"deploy_stages":[{"name":"build","command":"make","enabled":true},{"name":"ship","command":"./deploy.sh","enabled":true,"continue_on_error":true}]}`
+	req := httptest.NewRequest(http.MethodPatch, "/projects/1", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", res.Code, res.Body.String())
+	}
+
+	var reloaded model.Project
+	if err := database.First(&reloaded, project.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(reloaded.Stages) != 2 {
+		t.Fatalf("expected 2 stages persisted, got %d (%+v)", len(reloaded.Stages), reloaded.Stages)
+	}
+	if reloaded.Stages[0].Name != "build" || reloaded.Stages[0].Command != "make" || !reloaded.Stages[0].Enabled {
+		t.Fatalf("unexpected first stage: %+v", reloaded.Stages[0])
+	}
+	if reloaded.Stages[1].Name != "ship" || !reloaded.Stages[1].ContinueOnError {
+		t.Fatalf("unexpected second stage: %+v", reloaded.Stages[1])
+	}
+
+	// Emptying the pipeline must persist as an empty list, not be ignored.
+	req = httptest.NewRequest(http.MethodPatch, "/projects/1", strings.NewReader(`{"deploy_stages":[]}`))
+	req.Header.Set("Content-Type", "application/json")
+	res = httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected 200 on clear, got %d: %s", res.Code, res.Body.String())
+	}
+	var cleared model.Project
+	if err := database.First(&cleared, project.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(cleared.Stages) != 0 {
+		t.Fatalf("expected stages cleared, got %+v", cleared.Stages)
+	}
+}
+
+func TestUpdateProjectRejectsStageWithoutName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(&model.Project{}); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &config.Config{}
+	svc := service.New(database, cfg, sse.NewHub(), zap.NewNop())
+	h := &Handler{DB: database, Config: cfg, Service: svc, Hub: sse.NewHub()}
+	router := gin.New()
+	router.PATCH("/projects/:project_id", h.UpdateProject)
+
+	project := model.Project{Name: "app", ProjectKey: "app", GitProvider: model.GitProviderGitHub, RepoURL: "git@example.com:app.git", Branch: "main", RepoDir: "/data/repo", AppDir: "/data/app"}
+	if err := database.Create(&project).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPatch, "/projects/1", strings.NewReader(`{"deploy_stages":[{"name":"","command":"make","enabled":true}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 for nameless stage, got %d: %s", res.Code, res.Body.String())
+	}
+
+	var reloaded model.Project
+	if err := database.First(&reloaded, project.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(reloaded.Stages) != 0 {
+		t.Fatalf("invalid update should not persist stages, got %+v", reloaded.Stages)
+	}
+}
+
 func TestCancelDeployTaskErrorResponses(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	database, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
