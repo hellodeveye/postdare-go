@@ -11,7 +11,7 @@ import { Badge, statusTone } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useEventStream } from "../hooks/useEventStream";
-import { formatDate, shortCommit } from "../lib/utils";
+import { cn, formatDate, shortCommit } from "../lib/utils";
 import { useAuthStore } from "../store/auth";
 
 export function DeployTaskDetailPage() {
@@ -20,12 +20,13 @@ export function DeployTaskDetailPage() {
   const queryClient = useQueryClient();
   const task = useQuery({ queryKey: ["deploy-task", id], queryFn: () => getDeployTask(id!, token), enabled: Boolean(id), refetchInterval: 4000 });
   const log = useQuery({ queryKey: ["deploy-log", id], queryFn: () => getDeployLog(id!, token), enabled: Boolean(id) });
-  const liveLines = useEventStream(id && token ? streamURL(`/api/v1/deploy-tasks/${id}/logs/stream`, token) : undefined);
+  const data = task.data?.data;
+  const isLive = data?.status === "pending" || data?.status === "running";
+  const liveLines = useEventStream(id && token && isLive ? streamURL(`/api/v1/deploy-tasks/${id}/logs/stream`, token) : undefined);
   const cancel = useMutation({
     mutationFn: () => apiRequest<DataResponse<DeployTask>>(`/api/v1/deploy-tasks/${id}/cancel`, { method: "POST", body: JSON.stringify({}) }, token),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["deploy-task", id] })
   });
-  const data = task.data?.data;
 
   return (
     <>
@@ -46,9 +47,9 @@ export function DeployTaskDetailPage() {
               <CardTitle>Status</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted">Task status</span>
-                <Badge tone={statusTone(data?.status)}>{data?.status ?? "—"}</Badge>
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-sm text-muted">Task status</span>
+                <Badge className="shrink-0" tone={statusTone(data?.status)}>{data?.status ?? "—"}</Badge>
               </div>
               <Info label="Project" value={data?.project ? <Link className="text-primary hover:underline" to={`/projects/${data.project.id}`}>{data.project.name}</Link> : `Project ${data?.project_id ?? "—"}`} />
               <Info label="Current stage" value={data?.current_stage || "—"} />
@@ -74,22 +75,28 @@ export function DeployTaskDetailPage() {
               <CardTitle>Stages</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2">
-              {(data?.stages ?? []).map((stage) => (
-                <div key={stage.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
-                  <div>
-                    <div className="text-sm font-medium">{stage.name}</div>
-                    {stage.error_message ? <div className="mt-1 text-xs text-danger">{stage.error_message}</div> : null}
+              {(data?.stages ?? []).length ? (
+                (data?.stages ?? []).map((stage) => (
+                  <div key={stage.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{stage.name}</div>
+                      {stage.error_message ? <div className="mt-1 break-words break-all text-xs text-danger">{stage.error_message}</div> : null}
+                    </div>
+                    <Badge className="shrink-0" tone={statusTone(stage.status)}>{stage.status}</Badge>
                   </div>
-                  <Badge tone={statusTone(stage.status)}>{stage.status}</Badge>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="text-sm text-muted">No stage data.</div>
+              )}
             </CardContent>
           </Card>
         </div>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Deploy Log</CardTitle>
-            <RotateCcw className="h-4 w-4 text-muted" />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => log.refetch()} disabled={log.isFetching}>
+              <RotateCcw className={cn("h-4 w-4 text-muted", log.isFetching && "animate-spin")} />
+            </Button>
           </CardHeader>
           <CardContent>
             <LogViewer log={log.data?.data.log} liveLines={liveLines} />
@@ -102,9 +109,9 @@ export function DeployTaskDetailPage() {
 
 function Info({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
-    <div>
+    <div className="min-w-0">
       <div className="text-xs text-muted">{label}</div>
-      <div className="mt-0.5 break-words text-sm text-ink">{value || "—"}</div>
+      <div className="mt-0.5 break-words break-all text-sm text-ink">{value || "—"}</div>
     </div>
   );
 }
