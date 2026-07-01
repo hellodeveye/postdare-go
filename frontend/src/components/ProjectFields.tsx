@@ -189,12 +189,26 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                         <option value="feishu_text">Feishu text</option>
                         <option value="generic_json">Generic JSON</option>
                       </select>
-                      <Textarea
-                        className="min-h-[80px] w-full"
-                        placeholder="留空则使用系统默认消息模板"
-                        value={stage.config?.message_template ?? ""}
-                        onChange={(e) => updateConfig(index, { message_template: e.target.value })}
-                      />
+                      <div className="relative">
+                        <Textarea
+                          className="min-h-[80px] w-full"
+                          placeholder="留空则使用系统默认消息模板"
+                          value={stage.config?.message_template ?? ""}
+                          onChange={(e) => updateConfig(index, { message_template: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          title="默认消息模板"
+                          aria-label="默认消息模板"
+                          aria-pressed={Boolean(openHints[index])}
+                          onClick={() => toggleHint(index)}
+                          className={`absolute -right-9 top-1 inline-flex h-7 w-7 items-center justify-center rounded-md border hover:bg-muted/10 ${
+                            openHints[index] ? "border-primary text-primary" : "border-border text-muted"
+                          }`}
+                        >
+                          <HelpCircle className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                       {openHints[index] ? (
                         <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface p-3 text-xs leading-relaxed text-muted">
                           {defaultMessageTemplate}
@@ -233,15 +247,6 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                   <IconButton label="Remove stage" onClick={() => remove(index)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </IconButton>
-                  {stage.type === "outbound_webhook" ? (
-                    <IconButton
-                      label="默认消息模板"
-                      active={Boolean(openHints[index])}
-                      onClick={() => toggleHint(index)}
-                    >
-                      <HelpCircle className="h-3.5 w-3.5" />
-                    </IconButton>
-                  ) : null}
                 </div>
               </div>
             </li>
@@ -273,26 +278,21 @@ function IconButton({
   children,
   label,
   onClick,
-  disabled,
-  active
+  disabled
 }: {
   children: React.ReactNode;
   label: string;
   onClick: () => void;
   disabled?: boolean;
-  active?: boolean;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
-      aria-pressed={active}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-7 w-7 items-center justify-center rounded-md border hover:bg-muted/10 disabled:cursor-not-allowed disabled:opacity-40 ${
-        active ? "border-primary text-primary" : "border-border text-muted"
-      }`}
+      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted hover:bg-muted/10 disabled:cursor-not-allowed disabled:opacity-40"
     >
       {children}
     </button>
