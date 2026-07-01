@@ -189,23 +189,24 @@ function StageEditor({ stages, onChange }: { stages: ProjectStage[]; onChange: (
                         <option value="feishu_text">Feishu text</option>
                         <option value="generic_json">Generic JSON</option>
                       </select>
-                      <Textarea
-                        className="min-h-[80px] w-full"
-                        placeholder="留空则使用系统默认消息模板"
-                        value={stage.config?.message_template ?? ""}
-                        onChange={(e) => updateConfig(index, { message_template: e.target.value })}
-                      />
-                      <div className="flex justify-end">
+                      <div className="flex items-start gap-2">
+                        <Textarea
+                          className="min-h-[80px] flex-1"
+                          placeholder="留空则使用系统默认消息模板"
+                          value={stage.config?.message_template ?? ""}
+                          onChange={(e) => updateConfig(index, { message_template: e.target.value })}
+                        />
                         <button
                           type="button"
+                          title="默认消息模板"
+                          aria-label="默认消息模板"
                           aria-pressed={Boolean(openHints[index])}
                           onClick={() => toggleHint(index)}
-                          className={`inline-flex items-center gap-1 text-xs transition-colors hover:text-ink ${
-                            openHints[index] ? "text-primary" : "text-muted"
+                          className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border hover:bg-muted/10 ${
+                            openHints[index] ? "border-primary text-primary" : "border-border text-muted"
                           }`}
                         >
                           <HelpCircle className="h-3.5 w-3.5" />
-                          默认模板
                         </button>
                       </div>
                       {openHints[index] ? (
