@@ -18,14 +18,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 
-	"postdare-go/backend/internal/config"
-	"postdare-go/backend/internal/db"
-	"postdare-go/backend/internal/handler"
-	"postdare-go/backend/internal/middleware"
-	"postdare-go/backend/internal/service"
-	"postdare-go/backend/internal/sse"
-	"postdare-go/backend/internal/util"
-	"postdare-go/backend/internal/webui"
+	"github.com/hellodeveye/postdare-go/internal/config"
+	"github.com/hellodeveye/postdare-go/internal/db"
+	"github.com/hellodeveye/postdare-go/internal/handler"
+	"github.com/hellodeveye/postdare-go/internal/middleware"
+	"github.com/hellodeveye/postdare-go/internal/service"
+	"github.com/hellodeveye/postdare-go/internal/sse"
+	"github.com/hellodeveye/postdare-go/internal/util"
+	"github.com/hellodeveye/postdare-go/internal/webui"
 )
 
 var version = "dev"

@@ -15,11 +15,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"postdare-go/backend/internal/config"
-	"postdare-go/backend/internal/middleware"
-	"postdare-go/backend/internal/model"
-	"postdare-go/backend/internal/service"
-	"postdare-go/backend/internal/sse"
+	"github.com/hellodeveye/postdare-go/internal/config"
+	"github.com/hellodeveye/postdare-go/internal/middleware"
+	"github.com/hellodeveye/postdare-go/internal/model"
+	"github.com/hellodeveye/postdare-go/internal/service"
+	"github.com/hellodeveye/postdare-go/internal/sse"
 )
 
 func TestUpdateProjectPersistsDeployStages(t *testing.T) {

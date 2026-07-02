@@ -16,12 +16,12 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"postdare-go/backend/internal/config"
-	"postdare-go/backend/internal/model"
-	"postdare-go/backend/internal/notifier"
-	"postdare-go/backend/internal/runner"
-	"postdare-go/backend/internal/sse"
-	"postdare-go/backend/internal/webhook"
+	"github.com/hellodeveye/postdare-go/internal/config"
+	"github.com/hellodeveye/postdare-go/internal/model"
+	"github.com/hellodeveye/postdare-go/internal/notifier"
+	"github.com/hellodeveye/postdare-go/internal/runner"
+	"github.com/hellodeveye/postdare-go/internal/sse"
+	"github.com/hellodeveye/postdare-go/internal/webhook"
 )
 
 var (

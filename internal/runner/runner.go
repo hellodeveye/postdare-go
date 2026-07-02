@@ -14,7 +14,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"postdare-go/backend/internal/sse"
+	"github.com/hellodeveye/postdare-go/internal/sse"
 )
 
 type CommandRunner interface {

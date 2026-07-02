@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"postdare-go/backend/internal/mcp"
+	"github.com/hellodeveye/postdare-go/internal/mcp"
 )
 
 func main() {

@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"postdare-go/backend/internal/config"
-	"postdare-go/backend/internal/model"
-	"postdare-go/backend/internal/sse"
+	"github.com/hellodeveye/postdare-go/internal/config"
+	"github.com/hellodeveye/postdare-go/internal/model"
+	"github.com/hellodeveye/postdare-go/internal/sse"
 )
 
 func TestExecuteDeployKeepsSuccessAfterNotifyStage(t *testing.T) {

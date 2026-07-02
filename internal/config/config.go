@@ -64,15 +64,9 @@ type MCPConfig struct {
 }
 
 func Load(path string) (*Config, error) {
-	explicitPath := path != ""
-	if path == "" {
-		path = "config.yaml"
-	}
-	raw, err := os.ReadFile(path)
+	raw, err := readConfig(path)
 	if err != nil {
-		if explicitPath || !errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("read config: %w", err)
-		}
+		return nil, err
 	}
 	var cfg Config
 	if len(raw) > 0 {
@@ -91,6 +85,40 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+func readConfig(path string) ([]byte, error) {
+	if path != "" {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("read config: %w", err)
+		}
+		return raw, nil
+	}
+	seen := map[string]bool{}
+	for _, candidate := range defaultConfigPaths() {
+		if candidate == "" || seen[candidate] {
+			continue
+		}
+		seen[candidate] = true
+		raw, err := os.ReadFile(candidate)
+		if err == nil {
+			return raw, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("read config: %w", err)
+		}
+	}
+	return nil, nil
+}
+
+func defaultConfigPaths() []string {
+	paths := []string{"config.yaml"}
+	executable, err := os.Executable()
+	if err == nil {
+		paths = append(paths, filepath.Join(filepath.Dir(executable), "config.yaml"))
+	}
+	return paths
 }
 
 func (c *Config) applyDefaults() {

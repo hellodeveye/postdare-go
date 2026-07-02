@@ -5,16 +5,16 @@
 
 # Go build outputs
 bin/
-backend/server
-backend/mcp-server
-backend/*.test
+server
+mcp-server
+*.test
 
-# Frontend dependencies and build outputs
-frontend/node_modules/
-frontend/dist/
-frontend/*.tsbuildinfo
-frontend/vite.config.js
-frontend/vite.config.d.ts
+# Web dependencies and build outputs
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts
 
 # Logs and runtime data
 *.log

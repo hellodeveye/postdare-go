@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"postdare-go/backend/internal/model"
+	"github.com/hellodeveye/postdare-go/internal/model"
 )
 
 func TestSendOutboundWebhookRendersFeishuTextTemplate(t *testing.T) {

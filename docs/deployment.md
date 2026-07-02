@@ -8,7 +8,7 @@ Postdare Go targets Linux hosts with Git, systemd, and language-specific build t
 make release
 ```
 
-This builds the frontend, embeds it into the server, and writes Linux binaries to `bin/`.
+This builds the web UI, embeds it into the server, and writes Linux binaries to `bin/`.
 
 Copy the binary to the server:
 
@@ -56,7 +56,6 @@ run the copy before the SQLite service starts for the first time:
 
 ```bash
 sudo systemctl stop postdare-go
-cd backend
 go run ./cmd/copydb --from "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local" --to /data/postdare-go/postdare.db
 sudo systemctl start postdare-go
 ```
@@ -89,7 +88,7 @@ bash /data/apps/my-app/deploy.sh
 bash /data/apps/my-app/rollback.sh
 ```
 
-Do not pass command strings from the frontend at deploy time. Store stages in the project
+Do not pass command strings from the web UI at deploy time. Store stages in the project
 configuration.
 
 ## Logs

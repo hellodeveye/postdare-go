@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"postdare-go/backend/internal/config"
-	"postdare-go/backend/internal/model"
+	"github.com/hellodeveye/postdare-go/internal/config"
+	"github.com/hellodeveye/postdare-go/internal/model"
 )
 
 func TestOpenSQLiteCreatesFileSeedsAdminAndIsIdempotent(t *testing.T) {

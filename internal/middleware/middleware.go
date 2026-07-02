@@ -11,8 +11,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 
-	"postdare-go/backend/internal/config"
-	"postdare-go/backend/internal/util"
+	"github.com/hellodeveye/postdare-go/internal/config"
+	"github.com/hellodeveye/postdare-go/internal/util"
 )
 
 const (

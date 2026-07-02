@@ -4,16 +4,16 @@ Compact guidance for OpenCode sessions working in this repo.
 
 ## Layout
 
-- `backend/` — Go module `postdare-go/backend` (go 1.22). Two binaries: `cmd/server` (HTTP API on :8088) and `cmd/mcp-server` (stdio MCP that calls the REST API, no DB access). App code lives under `internal/`.
-- `frontend/` — Vite + React + TS SPA on :5173. Not a Go workspace; there is no root `go.mod`.
+- Root Go module `github.com/hellodeveye/postdare-go` (go 1.22). Three commands currently live under `cmd/`: `server` (HTTP API on :8088), `mcp-server` (stdio MCP that calls the REST API, no DB access), and `copydb` (one-shot MySQL to SQLite copier). App code lives under `internal/`.
+- `web/` — Vite + React + TS SPA on :5173. It is not a separate Go workspace.
 - `docs/` (REST API, webhooks, MCP, deployment), `examples/` (systemd units + deploy/rollback scripts), `PRODUCT.md` / `DESIGN.md` (product + visual intent: dark-first, restrained UI).
 
 ## Backend
 
-Run commands from `backend/` — they and `config.yaml` resolve against the CWD.
+Run Go commands from the repository root. `config.yaml` is optional and resolves from the current directory first, then from the binary directory.
 
 ```bash
-go run ./cmd/server          # needs MySQL (database.dsn in config.yaml)
+go run ./cmd/server          # defaults to SQLite
 go run ./cmd/mcp-server      # needs POSTDARE_GO_BASE_URL + POSTDARE_GO_API_TOKEN env
 go test ./...                # uses sqlite; NO MySQL required
 go vet ./...                 # only static check configured
@@ -21,8 +21,8 @@ go vet ./...                 # only static check configured
 
 - Config path override: `POSTDARE_GO_CONFIG=/path/to/config.yaml`.
 - `go test ./...` is safe to run anywhere — tests use in-memory/temp sqlite, never MySQL. Don't skip backend tests assuming a DB is required.
-- No Makefile, no CI workflows, no linter config, no pre-commit hooks. The full verification loop is `go vet ./... && go test ./...` from `backend/`.
-- `db.Open` runs GORM `AutoMigrate` and seeds the default admin (`admin` / `admin123456`) on every boot, so `migrations/init.sql` is for manual MySQL setup only and is not required when starting from the Go server. If you add a model field, update the GORM struct; keep `init.sql` in sync only if you also maintain manual setups.
+- No CI workflows, linter config, or pre-commit hooks. The full backend verification loop is `go vet ./... && go test ./...` from the repository root, or `make test`.
+- `db.Open` runs GORM `AutoMigrate` and seeds the default admin on first boot. Without `POSTDARE_GO_ADMIN_PASSWORD`, the initial admin password is randomly generated, printed once in startup logs, and must be changed after first login.
 - On startup, `ReconcileInterruptedTasks` marks any `pending`/`running` tasks as `failed` ("task interrupted by server restart").
 - Runtime/secret values (`jwt.secret`, `mcp.api_token`, `database.dsn`, deploy timeouts, `log_dir`) come only from `config.yaml` and need a restart. `PATCH /api/v1/settings` stores non-runtime metadata only.
 
@@ -35,7 +35,7 @@ Deploys run the project's configured `deploy_stages` — typed `[]model.ProjectS
 
 ### Security constraints enforced in code
 
-- Deploy/build/test commands come ONLY from project config — the frontend never passes command strings at runtime.
+- Deploy/build/test commands come ONLY from project config — the web UI never passes command strings at runtime.
 - `app_log_path` must be absolute and resolve under the project's `app_dir` (symlinks resolved when the target exists). Deploy-log reads are likewise confined under `deploy.log_dir`. See `safePathInDir` in `internal/handler/handler.go`.
 - `sanitizeLogText` strips ANSI escapes and invalid UTF-8 from every tailed log and SSE log stream.
 - SSE `/stream` endpoints accept `?access_token=<jwt or mcp token>` as a fallback because `EventSource` can't set headers.
