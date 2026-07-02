@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 WorkingDirectory=/opt/postdare-go
 Environment=POSTDARE_GO_DATA_DIR=/data/postdare-go
-ExecStart=/opt/postdare-go/postdare-go
+ExecStart=/opt/postdare-go/postdare-go serve
 Restart=always
 RestartSec=3
 User=postdare-go

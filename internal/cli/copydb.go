@@ -1,9 +1,10 @@
-package main
+package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,31 +16,37 @@ import (
 	"github.com/hellodeveye/postdare-go/internal/model"
 )
 
-func main() {
-	from := flag.String("from", "", "source MySQL DSN")
-	to := flag.String("to", "", "target SQLite database path")
-	flag.Parse()
+var ErrUsage = errors.New("usage")
+
+func CopyDB(args []string, stdout io.Writer, stderr io.Writer) error {
+	flags := flag.NewFlagSet("copydb", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	from := flags.String("from", "", "source MySQL DSN")
+	to := flags.String("to", "", "target SQLite database path")
+	if err := flags.Parse(args); err != nil {
+		return fmt.Errorf("%w: %v", ErrUsage, err)
+	}
 	if *from == "" || *to == "" {
-		flag.Usage()
-		os.Exit(2)
+		flags.Usage()
+		return ErrUsage
 	}
 
 	source, err := gorm.Open(mysql.Open(*from), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("open source mysql: %v", err)
+		return fmt.Errorf("open source mysql: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(*to), 0o755); err != nil {
-		log.Fatalf("create target directory: %v", err)
+		return fmt.Errorf("create target directory: %w", err)
 	}
 	target, err := gorm.Open(sqlite.Open(sqliteDSN(*to)), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("open target sqlite: %v", err)
+		return fmt.Errorf("open target sqlite: %w", err)
 	}
 	if err := autoMigrate(target); err != nil {
-		log.Fatalf("migrate target sqlite: %v", err)
+		return fmt.Errorf("migrate target sqlite: %w", err)
 	}
 	if err := ensureTargetEmpty(target); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	counts := map[string]int{}
@@ -72,13 +79,14 @@ func main() {
 		return nil
 	})
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	fmt.Println("copy complete")
+	fmt.Fprintln(stdout, "copy complete")
 	for _, table := range []string{"users", "projects", "deploy_tasks", "deploy_task_stages", "webhook_events", "settings"} {
-		fmt.Printf("%s: %d\n", table, counts[table])
+		fmt.Fprintf(stdout, "%s: %d\n", table, counts[table])
 	}
+	return nil
 }
 
 func autoMigrate(database *gorm.DB) error {

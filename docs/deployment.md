@@ -56,7 +56,7 @@ run the copy before the SQLite service starts for the first time:
 
 ```bash
 sudo systemctl stop postdare-go
-go run ./cmd/copydb --from "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local" --to /data/postdare-go/postdare.db
+/opt/postdare-go/postdare-go copydb --from "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local" --to /data/postdare-go/postdare.db
 sudo systemctl start postdare-go
 ```
 

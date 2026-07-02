@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -28,19 +28,19 @@ import (
 	"github.com/hellodeveye/postdare-go/internal/webui"
 )
 
-var version = "dev"
-
-func main() {
+func Serve(version string) error {
 	cfgPath := os.Getenv("POSTDARE_GO_CONFIG")
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	logger, err := zap.NewProduction()
 	if err != nil {
-		panic(err)
+		return err
 	}
-	defer logger.Sync()
+	defer func() {
+		_ = logger.Sync()
+	}()
 
 	logger.Info("startup configuration",
 		zap.String("db_driver", cfg.Database.Driver),
@@ -65,13 +65,13 @@ func main() {
 		}),
 	)
 	if err != nil {
-		logger.Fatal("database init failed", zap.Error(err))
+		return fmt.Errorf("database init failed: %w", err)
 	}
 
 	hub := sse.NewHub()
 	svc := service.New(database, cfg, hub, logger)
 	if err := svc.ReconcileInterruptedTasks(); err != nil {
-		logger.Fatal("task reconciliation failed", zap.Error(err))
+		return fmt.Errorf("task reconciliation failed: %w", err)
 	}
 	h := &handler.Handler{DB: database, Config: cfg, Service: svc, Hub: hub, AppVersion: version}
 
@@ -97,9 +97,9 @@ func main() {
 		logger.Info("shutdown signal received", zap.String("signal", sig.String()))
 	case err := <-errCh:
 		if !errors.Is(err, http.ErrServerClosed) {
-			logger.Fatal("server stopped", zap.Error(err))
+			return fmt.Errorf("server stopped: %w", err)
 		}
-		return
+		return nil
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
@@ -110,6 +110,7 @@ func main() {
 	if err := svc.Shutdown(shutdownCtx); err != nil {
 		logger.Warn("task shutdown timed out", zap.Error(err))
 	}
+	return nil
 }
 
 func registerWebUI(router *gin.Engine) {
