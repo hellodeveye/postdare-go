@@ -51,18 +51,8 @@ database:
 
 Create an empty database before starting the service. Tables are created by AutoMigrate on boot.
 
-To copy existing MySQL data into SQLite during a stop-the-world migration window,
-run the copy before the SQLite service starts for the first time:
-
-```bash
-sudo systemctl stop postdare-go
-/opt/postdare-go/postdare-go copydb --from "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local" --to /data/postdare-go/postdare.db
-sudo systemctl start postdare-go
-```
-
-Compare row counts for `users`, `projects`, `deploy_tasks`, `deploy_task_stages`, `webhook_events`, and `settings` before switching the service to SQLite.
-If the SQLite service already initialized the target database, stop the service, remove
-the database file plus any `-wal` and `-shm` sidecar files, then rerun `copydb`.
+The one-off `copydb` subcommand used for the 2026-07 MySQL → SQLite migration has been
+removed; recover it from git history if a similar migration is ever needed again.
 
 ## Deploy Stages
 

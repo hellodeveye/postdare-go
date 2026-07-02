@@ -103,11 +103,7 @@ database:
   dsn: "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local"
 ```
 
-使用 MySQL 时只需要提前创建空库，schema 由服务启动时的 GORM AutoMigrate 创建。旧版本 MySQL 数据迁移到 SQLite 可用一次性工具：
-
-```bash
-go run . copydb --from "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local" --to /data/postdare-go/postdare.db
-```
+使用 MySQL 时只需要提前创建空库，schema 由服务启动时的 GORM AutoMigrate 创建。
 
 常用环境变量覆盖：
 

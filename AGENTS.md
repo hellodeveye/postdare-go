@@ -4,7 +4,7 @@ Compact guidance for OpenCode sessions working in this repo.
 
 ## Layout
 
-- Root Go module `github.com/hellodeveye/postdare-go` (go 1.22). The single binary entrypoint is `main.go` at the repository root and exposes `serve`, `mcp`, `copydb`, and `version` subcommands. App code lives under `internal/`.
+- Root Go module `github.com/hellodeveye/postdare-go` (go 1.22). The single binary entrypoint is `main.go` at the repository root and exposes `serve`, `mcp`, and `version` subcommands. App code lives under `internal/`.
 - `web/` — Vite + React + TS SPA on :5173. It is not a separate Go workspace.
 - `docs/` (REST API, webhooks, MCP, deployment), `examples/` (systemd units + deploy/rollback scripts), `PRODUCT.md` / `DESIGN.md` (product + visual intent: dark-first, restrained UI).
 

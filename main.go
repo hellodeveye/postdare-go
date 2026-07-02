@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -44,15 +43,6 @@ func run(args []string, stdout io.Writer, stderr io.Writer) int {
 			return 1
 		}
 		return 0
-	case "copydb":
-		if err := cli.CopyDB(commandArgs, stdout, stderr); err != nil {
-			if errors.Is(err, cli.ErrUsage) {
-				return 2
-			}
-			fmt.Fprintln(stderr, err)
-			return 1
-		}
-		return 0
 	case "version":
 		if len(commandArgs) > 0 {
 			usage(stderr)
@@ -70,6 +60,5 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, `Usage:
   postdare-go [serve]
   postdare-go mcp
-  postdare-go copydb --from <mysql-dsn> --to <sqlite-path>
   postdare-go version`)
 }
