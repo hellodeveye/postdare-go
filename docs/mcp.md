@@ -7,11 +7,11 @@ Postdare Go includes a stdio MCP server for AI agents. The MCP server does not r
 ```bash
 cd backend
 POSTDARE_GO_BASE_URL=http://127.0.0.1:8088 \
-POSTDARE_GO_API_TOKEN=please-change-this-token \
+POSTDARE_GO_API_TOKEN="<mcp token from /data/postdare-go/secrets.yaml or config.yaml>" \
 go run ./cmd/mcp-server
 ```
 
-The backend accepts `POSTDARE_GO_API_TOKEN` when it matches `mcp.api_token` in `config.yaml`.
+The backend accepts `POSTDARE_GO_API_TOKEN` when it matches the effective MCP API token from environment variables, `config.yaml`, or generated `secrets.yaml`.
 It only accepts that token when `mcp.enabled` is true.
 
 ## Tools

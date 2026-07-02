@@ -42,6 +42,12 @@ Error response:
 }
 ```
 
+## Version
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/api/v1/version` | Build version and Go runtime version |
+
 ## Auth
 
 | Method | Path | Description |
@@ -49,6 +55,29 @@ Error response:
 | POST | `/api/v1/auth/login` | Login |
 | GET | `/api/v1/auth/me` | Current user |
 | POST | `/api/v1/auth/logout` | Logout |
+| PUT | `/api/v1/auth/password` | Change current user's password |
+
+`POST /auth/login` and `GET /auth/me` include `must_change_password`. When it is `true`, secured endpoints except `GET /auth/me`, `POST /auth/logout`, and `PUT /auth/password` return:
+
+```json
+{
+  "error": {
+    "code": "PASSWORD_CHANGE_REQUIRED",
+    "message": "Password change is required before continuing"
+  }
+}
+```
+
+Change password request:
+
+```json
+{
+  "old_password": "current-password",
+  "new_password": "new-password"
+}
+```
+
+The new password must be at least 8 characters.
 
 ## Projects
 
@@ -103,4 +132,4 @@ Project deletion is destructive for database records: it removes the project, re
 
 Lists support `page`, `page_size`, `sort`, and resource-specific filters such as `project_id`, `status`, and `provider`.
 
-`PATCH /settings` does not change live runtime configuration such as `jwt.secret`, `mcp.api_token`, deploy timeouts, or database DSN. Runtime and secret settings are managed in `config.yaml` and require a backend restart.
+`PATCH /settings` does not change live runtime configuration such as `jwt.secret`, `mcp.api_token`, deploy timeouts, or database settings. Runtime and secret settings are managed by environment variables, optional `config.yaml`, and generated `secrets.yaml`; changes require a backend restart.

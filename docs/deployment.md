@@ -1,15 +1,21 @@
 # Deployment Notes
 
-Postdare Go targets Linux hosts with Git, systemd, and language-specific build tools installed by the user.
+Postdare Go targets Linux hosts with Git, systemd, and language-specific build tools installed by the user. The default deployment is one static Go binary plus a SQLite database under `/data/postdare-go`.
 
-## Build Backend
+## Build Release
 
 ```bash
-cd backend
-go build -o postdare-go-server ./cmd/server
+make release
 ```
 
-Copy `postdare-go-server`, `config.yaml`, and migrations to `/opt/postdare-go/backend`.
+This builds the frontend, embeds it into the server, and writes Linux binaries to `bin/`.
+
+Copy the binary to the server:
+
+```bash
+sudo mkdir -p /opt/postdare-go /data/postdare-go
+scp bin/postdare-go-linux-amd64 your-host:/opt/postdare-go/postdare-go
+```
 
 Install the service:
 
@@ -18,6 +24,46 @@ sudo cp examples/postdare-go.service /etc/systemd/system/postdare-go.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now postdare-go
 ```
+
+No database initialization is required for the default SQLite setup. On first start, Postdare Go creates:
+
+```text
+/data/postdare-go/postdare.db
+/data/postdare-go/secrets.yaml
+/data/postdare-go/logs/deploy/
+```
+
+Find the one-time generated admin password in the service log:
+
+```bash
+journalctl -u postdare-go -n 100
+```
+
+## Optional MySQL
+
+MySQL remains available by configuration:
+
+```yaml
+database:
+  driver: mysql
+  dsn: "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local"
+```
+
+Create an empty database before starting the service. Tables are created by AutoMigrate on boot.
+
+To copy existing MySQL data into SQLite during a stop-the-world migration window,
+run the copy before the SQLite service starts for the first time:
+
+```bash
+sudo systemctl stop postdare-go
+cd backend
+go run ./cmd/copydb --from "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local" --to /data/postdare-go/postdare.db
+sudo systemctl start postdare-go
+```
+
+Compare row counts for `users`, `projects`, `deploy_tasks`, `deploy_task_stages`, `webhook_events`, and `settings` before switching the service to SQLite.
+If the SQLite service already initialized the target database, stop the service, remove
+the database file plus any `-wal` and `-shm` sidecar files, then rerun `copydb`.
 
 ## Deploy Stages
 

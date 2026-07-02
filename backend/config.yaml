@@ -4,15 +4,19 @@ server:
     - http://localhost:5173
     - http://localhost:5174
 
+data_dir: "./data"
+
 database:
-  dsn: "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local"
+  driver: sqlite
+  path: ""
+  dsn: ""
 
 jwt:
   secret: "please-change-this-secret"
   expire_hours: 72
 
 deploy:
-  log_dir: "/data/postdare-go/logs/deploy"
+  log_dir: ""
   command_timeout_minutes: 30
 
 app_log:

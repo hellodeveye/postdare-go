@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -21,8 +22,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"postdare-go/backend/internal/config"
 	"postdare-go/backend/internal/middleware"
@@ -34,16 +35,18 @@ import (
 )
 
 type Handler struct {
-	DB      *gorm.DB
-	Config  *config.Config
-	Service *service.Service
-	Hub     *sse.Hub
+	DB         *gorm.DB
+	Config     *config.Config
+	Service    *service.Service
+	Hub        *sse.Hub
+	AppVersion string
 }
 
 var ansiEscapePattern = regexp.MustCompile(`\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07]*(?:\x07|\x1b\\))`)
 
 func RegisterRoutes(r *gin.Engine, h *Handler) {
 	api := r.Group("/api/v1")
+	api.GET("/version", h.GetVersion)
 	api.POST("/auth/login", h.Login)
 	api.POST("/webhooks/gitee/:project_key", h.HandleGiteeWebhook)
 	api.POST("/webhooks/github/:project_key", h.HandleGitHubWebhook)
@@ -52,6 +55,9 @@ func RegisterRoutes(r *gin.Engine, h *Handler) {
 	secured.Use(middleware.Auth(h.Config))
 	secured.GET("/auth/me", h.Me)
 	secured.POST("/auth/logout", h.Logout)
+	secured.PUT("/auth/password", h.ChangePassword)
+
+	secured.Use(h.RequirePasswordReady)
 
 	secured.GET("/projects", h.ListProjects)
 	secured.POST("/projects", h.CreateProject)
@@ -84,6 +90,19 @@ func RegisterRoutes(r *gin.Engine, h *Handler) {
 type loginRequest struct {
 	Username string `json:"username" binding:"required"`
 	Password string `json:"password" binding:"required"`
+}
+
+type changePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required"`
+}
+
+func (h *Handler) GetVersion(c *gin.Context) {
+	version := h.AppVersion
+	if version == "" {
+		version = "dev"
+	}
+	c.JSON(http.StatusOK, gin.H{"version": version, "go": runtime.Version()})
 }
 
 func (h *Handler) Login(c *gin.Context) {
@@ -121,17 +140,95 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 func (h *Handler) Me(c *gin.Context) {
+	if middleware.IsMCP(c) {
+		util.OK(c, gin.H{
+			"role":                 c.GetString(middleware.RoleKey),
+			"actor":                c.GetString(middleware.ActorKey),
+			"must_change_password": false,
+		})
+		return
+	}
 	userID, _ := c.Get(middleware.UserIDKey)
+	var user model.User
+	if err := h.DB.First(&user, userID).Error; err != nil {
+		util.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not found", nil)
+		return
+	}
 	util.OK(c, gin.H{
-		"id":       userID,
-		"username": c.GetString(middleware.UsernameKey),
-		"role":     c.GetString(middleware.RoleKey),
-		"actor":    c.GetString(middleware.ActorKey),
+		"id":                   user.ID,
+		"username":             user.Username,
+		"role":                 user.Role,
+		"actor":                c.GetString(middleware.ActorKey),
+		"must_change_password": user.MustChangePassword,
 	})
 }
 
 func (h *Handler) Logout(c *gin.Context) {
 	util.OK(c, gin.H{"ok": true})
+}
+
+func (h *Handler) ChangePassword(c *gin.Context) {
+	userID, ok := c.Get(middleware.UserIDKey)
+	if !ok {
+		util.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User token is required", nil)
+		return
+	}
+	var req changePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		util.Error(c, http.StatusBadRequest, "INVALID_REQUEST", "Invalid password request", err.Error())
+		return
+	}
+	if len(req.NewPassword) < 8 {
+		util.Error(c, http.StatusBadRequest, "INVALID_PASSWORD", "New password must be at least 8 characters", nil)
+		return
+	}
+	var user model.User
+	if err := h.DB.First(&user, userID).Error; err != nil {
+		util.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not found", nil)
+		return
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.OldPassword)); err != nil {
+		util.Error(c, http.StatusUnauthorized, "INVALID_CREDENTIALS", "Old password is incorrect", nil)
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		util.Error(c, http.StatusInternalServerError, "PASSWORD_UPDATE_FAILED", "Failed to update password", nil)
+		return
+	}
+	if err := h.DB.Model(&user).Updates(map[string]interface{}{
+		"password_hash":        string(hash),
+		"must_change_password": false,
+	}).Error; err != nil {
+		util.Error(c, http.StatusInternalServerError, "PASSWORD_UPDATE_FAILED", "Failed to update password", nil)
+		return
+	}
+	util.OK(c, gin.H{"ok": true})
+}
+
+func (h *Handler) RequirePasswordReady(c *gin.Context) {
+	if middleware.IsMCP(c) {
+		c.Next()
+		return
+	}
+	userID, ok := c.Get(middleware.UserIDKey)
+	if !ok {
+		util.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User token is required", nil)
+		c.Abort()
+		return
+	}
+	var user model.User
+	if err := h.DB.Select("id", "must_change_password").First(&user, userID).Error; err != nil {
+		util.Error(c, http.StatusUnauthorized, "UNAUTHORIZED", "User not found", nil)
+		c.Abort()
+		return
+	}
+	if user.MustChangePassword {
+		util.Error(c, http.StatusForbidden, "PASSWORD_CHANGE_REQUIRED", "Password change is required before continuing", nil)
+		c.Abort()
+		return
+	}
+	c.Next()
 }
 
 func (h *Handler) ListProjects(c *gin.Context) {
@@ -548,7 +645,7 @@ func (h *Handler) DashboardRecentDeployTasks(c *gin.Context) {
 
 func (h *Handler) GetSettings(c *gin.Context) {
 	var settings []model.Setting
-	_ = h.DB.Order("`key` asc").Find(&settings).Error
+	_ = h.DB.Order(clause.OrderByColumn{Column: clause.Column{Name: "key"}}).Find(&settings).Error
 	util.OK(c, gin.H{
 		"server":  gin.H{"port": h.Config.Server.Port, "cors_origins": h.Config.Server.CORSOrigins},
 		"deploy":  gin.H{"log_dir": h.Config.Deploy.LogDir, "command_timeout_minutes": h.Config.Deploy.CommandTimeoutMinutes},
@@ -622,7 +719,7 @@ func (h *Handler) handleWebhook(c *gin.Context, provider string, parser webhook.
 		CommitAuthor:   ev.CommitAuthor,
 		DeliveryID:     ev.DeliveryID,
 		SignatureValid: signatureValid,
-		RawPayload:     datatypes.JSON(body),
+		RawPayload:     json.RawMessage(body),
 	}
 	if projectErr == nil {
 		dbEvent.ProjectID = &project.ID

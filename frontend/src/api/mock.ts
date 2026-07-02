@@ -135,10 +135,13 @@ export function mockResponse(path: string, init?: RequestInit): unknown {
   const url = new URL(path, "http://mock.local");
   const pathname = url.pathname;
   if (pathname.endsWith("/auth/login")) {
-    return { data: { token: "mock-token", user: { id: 1, username: "admin", role: "admin" } } };
+    return { data: { token: "mock-token", user: { id: 1, username: "admin", role: "admin", must_change_password: false } } };
   }
   if (pathname.endsWith("/auth/me")) {
-    return { data: { id: 1, username: "admin", role: "admin", actor: "mock" } };
+    return { data: { id: 1, username: "admin", role: "admin", actor: "mock", must_change_password: false } };
+  }
+  if (pathname.endsWith("/auth/password")) {
+    return { data: { ok: true } };
   }
   if (pathname.endsWith("/dashboard/summary")) {
     const summary: DashboardSummary = {

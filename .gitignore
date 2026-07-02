@@ -4,6 +4,7 @@
 .vscode/
 
 # Go build outputs
+bin/
 backend/server
 backend/mcp-server
 backend/*.test
@@ -17,5 +18,6 @@ frontend/vite.config.d.ts
 
 # Logs and runtime data
 *.log
+*.swp
 data/
 .omx/

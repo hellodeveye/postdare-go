@@ -1,12 +1,12 @@
 [Unit]
 Description=Postdare Go release console
-After=network.target mysql.service
+After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/postdare-go/backend
-Environment=POSTDARE_GO_CONFIG=/opt/postdare-go/backend/config.yaml
-ExecStart=/opt/postdare-go/backend/postdare-go-server
+WorkingDirectory=/opt/postdare-go
+Environment=POSTDARE_GO_DATA_DIR=/data/postdare-go
+ExecStart=/opt/postdare-go/postdare-go
 Restart=always
 RestartSec=3
 User=postdare-go

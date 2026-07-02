@@ -4,6 +4,13 @@ export type ProjectStageType = "command" | "health_check" | "outbound_webhook";
 export type ProjectStageRunWhen = "success" | "failed" | "always";
 export type OutboundWebhookTemplate = "dingtalk_text" | "wecom_text" | "feishu_text" | "generic_json";
 
+export interface User {
+  id: number;
+  username: string;
+  role: string;
+  must_change_password: boolean;
+}
+
 export interface ProjectStageBase {
   name: string;
   type: ProjectStageType;

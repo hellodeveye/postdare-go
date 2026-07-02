@@ -3,8 +3,6 @@ package model
 import (
 	"encoding/json"
 	"time"
-
-	"gorm.io/datatypes"
 )
 
 const (
@@ -39,12 +37,13 @@ const (
 )
 
 type User struct {
-	ID           uint64    `gorm:"primaryKey" json:"id"`
-	Username     string    `gorm:"size:100;uniqueIndex;not null" json:"username"`
-	PasswordHash string    `gorm:"size:255;not null" json:"-"`
-	Role         string    `gorm:"size:50;not null;default:admin" json:"role"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID                 uint64    `gorm:"primaryKey" json:"id"`
+	Username           string    `gorm:"size:100;uniqueIndex;not null" json:"username"`
+	PasswordHash       string    `gorm:"size:255;not null" json:"-"`
+	Role               string    `gorm:"size:50;not null;default:admin" json:"role"`
+	MustChangePassword bool      `gorm:"not null;default:false" json:"must_change_password"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type Project struct {
@@ -91,7 +90,7 @@ type OutboundWebhookStageConfig struct {
 
 type DeployTask struct {
 	ID            uint64            `gorm:"primaryKey" json:"id"`
-	ProjectID     uint64            `gorm:"not null;index:idx_project_id" json:"project_id"`
+	ProjectID     uint64            `gorm:"not null;index:idx_deploy_tasks_project_id" json:"project_id"`
 	Project       *Project          `json:"project,omitempty"`
 	Stages        []DeployTaskStage `gorm:"foreignKey:TaskID" json:"stages,omitempty"`
 	TriggerType   string            `gorm:"size:50;not null" json:"trigger_type"`
@@ -100,19 +99,19 @@ type DeployTask struct {
 	CommitID      string            `gorm:"size:100" json:"commit_id"`
 	CommitMessage string            `gorm:"type:text" json:"commit_message"`
 	CommitAuthor  string            `gorm:"size:100" json:"commit_author"`
-	Status        string            `gorm:"size:50;not null;index:idx_status" json:"status"`
+	Status        string            `gorm:"size:50;not null;index:idx_deploy_tasks_status" json:"status"`
 	CurrentStage  string            `gorm:"size:100" json:"current_stage"`
 	FailReason    string            `gorm:"type:text" json:"fail_reason"`
 	LogFile       string            `gorm:"size:500" json:"log_file"`
 	StartedAt     *time.Time        `json:"started_at"`
 	FinishedAt    *time.Time        `json:"finished_at"`
-	CreatedAt     time.Time         `gorm:"index:idx_created_at" json:"created_at"`
+	CreatedAt     time.Time         `gorm:"index:idx_deploy_tasks_created_at" json:"created_at"`
 	UpdatedAt     time.Time         `json:"updated_at"`
 }
 
 type DeployTaskStage struct {
 	ID           uint64     `gorm:"primaryKey" json:"id"`
-	TaskID       uint64     `gorm:"not null;index:idx_task_id" json:"task_id"`
+	TaskID       uint64     `gorm:"not null;index:idx_deploy_task_stages_task_id" json:"task_id"`
 	Name         string     `gorm:"size:100;not null" json:"name"`
 	Status       string     `gorm:"size:50;not null" json:"status"`
 	StartedAt    *time.Time `json:"started_at"`
@@ -124,21 +123,21 @@ type DeployTaskStage struct {
 }
 
 type WebhookEvent struct {
-	ID             uint64         `gorm:"primaryKey" json:"id"`
-	Provider       string         `gorm:"size:50;not null;index:idx_provider" json:"provider"`
-	ProjectID      *uint64        `gorm:"index:idx_project_id" json:"project_id"`
-	ProjectKey     string         `gorm:"size:100" json:"project_key"`
-	EventType      string         `gorm:"size:100" json:"event_type"`
-	Branch         string         `gorm:"size:100" json:"branch"`
-	CommitID       string         `gorm:"size:100" json:"commit_id"`
-	CommitMessage  string         `gorm:"type:text" json:"commit_message"`
-	CommitAuthor   string         `gorm:"size:100" json:"commit_author"`
-	DeliveryID     string         `gorm:"size:255" json:"delivery_id"`
-	SignatureValid bool           `gorm:"not null;default:false" json:"signature_valid"`
-	Handled        bool           `gorm:"not null;default:false" json:"handled"`
-	IgnoredReason  string         `gorm:"type:text" json:"ignored_reason"`
-	RawPayload     datatypes.JSON `gorm:"type:json" json:"raw_payload,omitempty"`
-	CreatedAt      time.Time      `gorm:"index:idx_created_at" json:"created_at"`
+	ID             uint64          `gorm:"primaryKey" json:"id"`
+	Provider       string          `gorm:"size:50;not null;index:idx_webhook_events_provider" json:"provider"`
+	ProjectID      *uint64         `gorm:"index:idx_webhook_events_project_id" json:"project_id"`
+	ProjectKey     string          `gorm:"size:100" json:"project_key"`
+	EventType      string          `gorm:"size:100" json:"event_type"`
+	Branch         string          `gorm:"size:100" json:"branch"`
+	CommitID       string          `gorm:"size:100" json:"commit_id"`
+	CommitMessage  string          `gorm:"type:text" json:"commit_message"`
+	CommitAuthor   string          `gorm:"size:100" json:"commit_author"`
+	DeliveryID     string          `gorm:"size:255" json:"delivery_id"`
+	SignatureValid bool            `gorm:"not null;default:false" json:"signature_valid"`
+	Handled        bool            `gorm:"not null;default:false" json:"handled"`
+	IgnoredReason  string          `gorm:"type:text" json:"ignored_reason"`
+	RawPayload     json.RawMessage `gorm:"type:json" json:"raw_payload,omitempty"`
+	CreatedAt      time.Time       `gorm:"index:idx_webhook_events_created_at" json:"created_at"`
 }
 
 type Setting struct {

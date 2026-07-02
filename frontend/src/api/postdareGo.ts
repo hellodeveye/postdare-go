@@ -1,11 +1,22 @@
 import { apiRequest, withQuery } from "./client";
-import type { DashboardSummary, DataResponse, DeployTask, ListResponse, Project, WebhookEvent } from "./types";
+import type { DashboardSummary, DataResponse, DeployTask, ListResponse, Project, User, WebhookEvent } from "./types";
 
 export function login(username: string, password: string) {
-  return apiRequest<DataResponse<{ token: string; user: { id: number; username: string; role: string } }>>("/api/v1/auth/login", {
+  return apiRequest<DataResponse<{ token: string; user: User }>>("/api/v1/auth/login", {
     method: "POST",
     body: JSON.stringify({ username, password })
   });
+}
+
+export function changePassword(oldPassword: string, newPassword: string, token?: string | null) {
+  return apiRequest<DataResponse<{ ok: boolean }>>(
+    "/api/v1/auth/password",
+    {
+      method: "PUT",
+      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+    },
+    token
+  );
 }
 
 export function dashboardSummary(token?: string | null) {

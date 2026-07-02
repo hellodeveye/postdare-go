@@ -23,7 +23,7 @@ export function LoginPage() {
     try {
       const res = await login(username, password);
       setSession(res.data.token, res.data.user);
-      navigate("/dashboard");
+      navigate(res.data.user.must_change_password ? "/change-password" : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

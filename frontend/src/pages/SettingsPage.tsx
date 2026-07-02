@@ -1,13 +1,16 @@
-import { ShieldCheck } from "lucide-react";
+import { KeyRound, ShieldCheck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 import { getSettings } from "../api/postdareGo";
 import { PageHeader } from "../components/PageHeader";
 import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useAuthStore } from "../store/auth";
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const token = useAuthStore((state) => state.token);
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => getSettings(token) });
   const data = settings.data?.data ?? {};
@@ -16,6 +19,15 @@ export function SettingsPage() {
     <>
       <PageHeader title="Settings" />
       <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Account</CardTitle>
+            <KeyRound className="h-4 w-4 text-muted" />
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => navigate("/change-password")}>Change password</Button>
+          </CardContent>
+        </Card>
         <SettingsCard title="Server" entries={objectEntries(data.server)} />
         <SettingsCard title="Deploy" entries={objectEntries(data.deploy)} />
         <SettingsCard title="Application Logs" entries={objectEntries(data.app_log)} />
