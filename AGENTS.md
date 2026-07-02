@@ -4,7 +4,7 @@ Compact guidance for OpenCode sessions working in this repo.
 
 ## Layout
 
-- Root Go module `github.com/hellodeveye/postdare-go` (go 1.22). The single binary entrypoint lives at `cmd/postdare-go` and exposes `serve`, `mcp`, `copydb`, and `version` subcommands. App code lives under `internal/`.
+- Root Go module `github.com/hellodeveye/postdare-go` (go 1.22). The single binary entrypoint is `main.go` at the repository root and exposes `serve`, `mcp`, `copydb`, and `version` subcommands. App code lives under `internal/`.
 - `web/` — Vite + React + TS SPA on :5173. It is not a separate Go workspace.
 - `docs/` (REST API, webhooks, MCP, deployment), `examples/` (systemd units + deploy/rollback scripts), `PRODUCT.md` / `DESIGN.md` (product + visual intent: dark-first, restrained UI).
 
@@ -13,8 +13,8 @@ Compact guidance for OpenCode sessions working in this repo.
 Run Go commands from the repository root. `config.yaml` is optional and resolves from the current directory first, then from the binary directory.
 
 ```bash
-go run ./cmd/postdare-go serve    # defaults to SQLite
-go run ./cmd/postdare-go mcp      # needs POSTDARE_GO_BASE_URL + POSTDARE_GO_API_TOKEN env
+go run . serve    # defaults to SQLite
+go run . mcp      # needs POSTDARE_GO_BASE_URL + POSTDARE_GO_API_TOKEN env
 go test ./...                # uses sqlite; NO MySQL required
 go vet ./...                 # only static check configured
 ```

@@ -106,7 +106,7 @@ database:
 使用 MySQL 时只需要提前创建空库，schema 由服务启动时的 GORM AutoMigrate 创建。旧版本 MySQL 数据迁移到 SQLite 可用一次性工具：
 
 ```bash
-go run ./cmd/postdare-go copydb --from "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local" --to /data/postdare-go/postdare.db
+go run . copydb --from "root:password@tcp(127.0.0.1:3306)/postdare_go?charset=utf8mb4&parseTime=True&loc=Local" --to /data/postdare-go/postdare.db
 ```
 
 常用环境变量覆盖：
@@ -128,7 +128,7 @@ POSTDARE_GO_ADMIN_PASSWORD
 
 ```bash
 go mod tidy
-go run ./cmd/postdare-go serve
+go run . serve
 ```
 
 开发用配置默认把数据写到仓库根目录的 `data/`。也可以用 `POSTDARE_GO_DATA_DIR=/path/to/data` 指向其他目录。
@@ -298,7 +298,7 @@ GET /api/v1/projects/{project_id}/app-logs/stream
 ```bash
 POSTDARE_GO_BASE_URL=http://127.0.0.1:8088 \
 POSTDARE_GO_API_TOKEN="<mcp token from /data/postdare-go/secrets.yaml or config.yaml>" \
-go run ./cmd/postdare-go mcp
+go run . mcp
 ```
 
 MCP tools：

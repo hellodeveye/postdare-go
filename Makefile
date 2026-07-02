@@ -13,12 +13,12 @@ web:
 
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/postdare-go ./cmd/postdare-go
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/postdare-go .
 
 release: web
 	mkdir -p bin
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/postdare-go-linux-amd64 ./cmd/postdare-go
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/postdare-go-linux-arm64 ./cmd/postdare-go
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/postdare-go-linux-amd64 .
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/postdare-go-linux-arm64 .
 
 test:
 	go vet ./...
